@@ -1,0 +1,6 @@
+[book]
+authors = ["Liam Beckman", "Bernhard Schuster"]
+language = "en"
+multilingual = false
+src = "src"
+title = "mdbook-tectonic"

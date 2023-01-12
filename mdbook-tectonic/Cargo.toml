@@ -1,0 +1,35 @@
+[package]
+name = "mdbook-tectonic"
+description = "An mdbook backend for generating LaTeX and PDF documents."
+version = "0.3.0-beta.3"
+authors = [
+  "lbeckman314 <liam@liambeckman.com>",
+  "Bernhard Schuster <bernhard@ahoi.io>",
+]
+repository = "https://github.com/drahnr/mdbook-tectonic"
+license = "MPL-2.0"
+readme = "README.md"
+
+edition = "2021"
+rust-version = "1.62.0"
+
+[dependencies]
+mdbook = { version = "0.4", default-features = false }
+color-eyre = { version = "0.6" }
+pulldown-cmark = "0.9"
+pulldown-cmark-to-cmark = "10"
+serde = "1.0.104"
+serde_derive = "1.0.104"
+cmark2tex = { version = "0.3.0-beta.2", path = "../cmark2tex" }
+which = "4"
+tempfile = "3"
+semver = "1"
+fs-err = "2.9"
+thiserror = "1"
+regex = "1"
+log = "0.4"
+env_logger = "0.10"
+
+
+[dev-dependencies]
+assert_matches = "1"
