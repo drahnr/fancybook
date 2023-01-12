@@ -1,0 +1,30 @@
+[package]
+name = "mdbook-boilerplate"
+version = "0.0.1"
+authors = [
+  "Bernhard Schuster <bernhard@ahoi.io>",
+]
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+description = "Avoid the mdbook preprocessor boilerplate"
+keywords = ["mdbook", "boilderplate"]
+repository = "https://github.com/drahnr/fancybook/mdbook-boilerplate"
+
+
+[dependencies]
+mdbook = { version = "0.4", default-features = false }
+clap = { version = "4", features = ["derive"] }
+serde = "1"
+serde_json = "1"
+sha2 = "0.10.6"
+thiserror = "1"
+fs-err = "2.8"
+color-eyre = { version = "0.6.2", features = [] }
+semver = "1"
+log = "0.4"
+toml = "0.5"
+env_logger = "0.10"
+
+
+[dev-dependencies]
+assert_matches = "1"
