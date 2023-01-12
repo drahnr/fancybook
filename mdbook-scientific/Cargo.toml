@@ -1,0 +1,36 @@
+[package]
+name = "mdbook-scientific"
+version = "0.5.0-beta.2"
+authors = [
+  "Bernhard Schuster <bernhard@ahoi.io>",
+  "Lorenz Schmidt <bytesnake@mailbox.org>",
+]
+edition = "2021"
+license = "GPL-3.0"
+description = "Enables inline equations for mdbook to set by $..$ signs and $$..$$"
+keywords = ["mdbook", "scientific", "equation"]
+repository = "https://github.com/drahnr/mdbook-scientific"
+
+
+[dependencies]
+mdbook = { version = "0.4", default-features = false }
+clap = { version = "4", features = ["derive"] }
+serde = "1"
+serde_json = "1"
+sha2 = "0.10.6"
+nom-bibtex = "0.3"
+which = { version = "4", default-features = false }
+thiserror = "1"
+fs-err = "2.8"
+color-eyre = { version = "0.6.2", features = [] }
+itertools = "0.10"
+semver = "1"
+pulldown-cmark = "0.9.2"
+pulldown-cmark-to-cmark = "10.0.4"
+regex = "1"
+log = "0.4"
+env_logger = "0.10.0"
+mdbook-boilerplate = { path = "../mdbook-boilerplate" }
+
+[dev-dependencies]
+assert_matches = "1"
