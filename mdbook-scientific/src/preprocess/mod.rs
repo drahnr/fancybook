@@ -13,9 +13,9 @@ pub use self::format::*;
 pub mod parse;
 pub use self::parse::*;
 
-
 pub fn replace_blocks(
     fragment_path: impl AsRef<Path>,
+    asset_path: impl AsRef<Path>,
     source: &str,
     chapter_number: &str,
     chapter_name: &str,
@@ -28,6 +28,8 @@ pub fn replace_blocks(
     let fragment_path = fragment_path.as_ref();
     fs::create_dir_all(fragment_path)?;
 
+    let asset_path = asset_path.as_ref();
+
     let iter = dollar_split_tags_iter(source);
     let s = iter_over_dollar_encompassed_blocks(source, iter)
         .map(|tagged| match tagged {
@@ -39,6 +41,7 @@ pub fn replace_blocks(
                     transform_block_as_needed(
                         &content,
                         fragment_path,
+                        asset_path,
                         &chapter_number,
                         &chapter_name,
                         &chapter_path,
@@ -51,6 +54,7 @@ pub fn replace_blocks(
                     transform_inline_as_needed(
                         &content,
                         fragment_path,
+                        asset_path,
                         chapter_number,
                         chapter_name,
                         chapter_path,
@@ -70,6 +74,7 @@ pub fn replace_blocks(
 fn transform_block_as_needed<'a>(
     content: &Content<'a>,
     fragment_path: impl AsRef<Path>,
+    asset_path: impl AsRef<Path>,
     chapter_number: &str,
     chapter_name: &str,
     _chapter_path: impl AsRef<Path>,
@@ -79,14 +84,15 @@ fn transform_block_as_needed<'a>(
 ) -> Result<String> {
     let dollarless = content.trimmed();
     let fragment_path = fragment_path.as_ref();
+    let asset_path = asset_path.as_ref();
 
     let mut figures_counter = 0;
     let mut equations_counter = 0;
 
     let mut add_object =
-        move |replacement: &Replacement<'_>, refer: &str, title: Option<&str>| -> String {
-            let file = replacement.svg.as_path();
-            used_fragments.push(file.to_owned());
+        move |replacement: &mut Replacement<'_>, refer: &str, title: Option<&str>| -> String {
+            let fragment_file = replacement.svg_fragment_file.as_path();
+            used_fragments.push(fragment_file.to_owned());
 
             if let Some(title) = title {
                 figures_counter += 1;
@@ -139,30 +145,44 @@ fn transform_block_as_needed<'a>(
     let (msg, replacement) = match &params[..] {
         ["latex", refer, title] => (
             "🌋 tex",
-            fragments::parse_latex(fragment_path, &content)
-                .map(|ref file| add_object(file, refer, Some(title))),
+            fragments::parse_latex(fragment_path, asset_path, &content)
+                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
         ),
         ["gnuplot", refer, title] => (
             "📈 figure",
-            fragments::parse_gnuplot(fragment_path, &content)
-                .map(|ref file| add_object(file, refer, Some(title))),
+            fragments::parse_gnuplot(fragment_path, asset_path, &content)
+                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
         ),
         ["gnuplotonly", refer, title] => (
             "📈 figure",
-            fragments::parse_gnuplot_only(fragment_path, &content)
-                .map(|ref file| add_object(file, refer, Some(title))),
+            fragments::parse_gnuplot_only(fragment_path, asset_path, &content)
+                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
         ),
 
         ["equation", refer] | ["equ", refer] => (
             "🧮 equation",
-            fragments::generate_replacement_file_from_template(fragment_path, &content, 1.6, chapter_number, chapter_name)
-                .map(|ref file| add_object(file, refer, None)),
+            fragments::generate_replacement_file_from_template(
+                fragment_path,
+                asset_path,
+                &content,
+                1.6,
+                chapter_number,
+                chapter_name,
+            )
+            .map(|ref mut replacement| add_object(replacement, refer, None)),
         ),
 
         ["equation"] | ["equ"] | _ => (
             "🧮 equation",
-            fragments::generate_replacement_file_from_template(fragment_path, &content, 1.6, chapter_number, chapter_name)
-                .map(|ref file| add_object(file, "", None)),
+            fragments::generate_replacement_file_from_template(
+                fragment_path,
+                asset_path,
+                &content,
+                1.6,
+                chapter_number,
+                chapter_name,
+            )
+            .map(|ref mut replacement| add_object(replacement, "", None)),
         ),
     };
 
@@ -181,6 +201,7 @@ fn transform_block_as_needed<'a>(
 fn transform_inline_as_needed<'a>(
     content: &Content<'a>,
     fragment_path: impl AsRef<Path>,
+    asset_path: impl AsRef<Path>,
     chapter_number: &str,
     chapter_name: &str,
     _chapter_path: impl AsRef<Path>,
@@ -190,6 +211,7 @@ fn transform_inline_as_needed<'a>(
 ) -> Result<String> {
     let dollarless = content.trimmed();
     let fragment_path = fragment_path.as_ref();
+    let asset_path = asset_path.as_ref();
     let lineno = content.start.lineno;
 
     if let Some(stripped) = dollarless.strip_prefix("ref:") {
@@ -249,12 +271,18 @@ fn transform_inline_as_needed<'a>(
         log::info!("{} Found inline {}", emoji, msg);
         replacement
     } else {
-        fragments::generate_replacement_file_from_template(fragment_path, &content, 1.3, chapter_number, chapter_name).map(
-            |replacement| {
-                let res = format_equation_inline(&replacement, renderer);
-                used_fragments.push(replacement.svg);
-                res
-            },
+        fragments::generate_replacement_file_from_template(
+            fragment_path,
+            asset_path,
+            &content,
+            1.3,
+            chapter_number,
+            chapter_name,
         )
+        .map(|replacement| {
+            let res = format_equation_inline(&replacement, renderer);
+            used_fragments.push(replacement.svg_fragment_file);
+            res
+        })
     }
 }

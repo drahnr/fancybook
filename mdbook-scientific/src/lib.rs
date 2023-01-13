@@ -3,6 +3,7 @@ mod preprocess;
 
 use crate::errors::Error;
 use fs_err as fs;
+use mdbook_boilerplate::{asset_path, fragment_path};
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -55,17 +56,17 @@ impl Scientific {
         if let Some(cfg) = ctx.config.get_preprocessor(self.name()) {
             let renderer = SupportedRenderer::from_str(ctx.renderer.as_str())?;
 
-            let fragment_path = cfg
-                .get("fragment_path")
-                .map(|x| x.as_str().expect("Fragment path is valid UTF8. qed"))
-                .unwrap_or("fragments/");
-
-            let fragment_path = Path::new(fragment_path);
-
-            fs::create_dir_all(fragment_path)?;
-
-            let fragment_path = fs::canonicalize(fragment_path)?;
+            let fragment_path = fragment_path(&cfg);
             log::info!("Using fragment path: {}", fragment_path.display());
+
+            fs::create_dir_all(&fragment_path)?;
+            let fragment_path = fs::canonicalize(fragment_path)?;
+
+            // the output path is `src/assets`, which get copied to the output directory
+            let asset_path = asset_path(&cfg);
+
+            log::info!("Using asset path: {}", asset_path.display());
+            fs::create_dir_all(&asset_path)?;
 
             // track which fragments we use to copy them into the assets folder
             let mut used_fragments = Vec::new();
@@ -130,10 +131,11 @@ impl Scientific {
 
                     match replace_blocks(
                         &fragment_path,
+                        &asset_path,
                         &ch.content,
                         &chapter_number,
                         &chapter_name,
-                        chapter_path.as_path(),
+                        &chapter_path,
                         renderer,
                         &mut used_fragments,
                         &mut references,
@@ -157,34 +159,26 @@ impl Scientific {
 
             error?;
 
-            // the output path is `src/storage/assets`, which get copied to the output directory
-            let asset_path = cfg
-                .get("assets")
-                .map(|x| x.as_str().expect("Assumes valid UTF8 for assets. qed"))
-                .unwrap_or("src/");
-            let dest = ctx.root.join(asset_path);
-
-            if !dest.exists() {
-                fs::create_dir_all(&dest)?;
-            }
-
-            let dest = fs::canonicalize(dest)?;
-
             // copy all used fragments
-            if fragment_path != dest {
+            if fragment_path != asset_path {
+                // svg_path is unfortunately the `fragment_path` plus `file` which is an abs path.
                 for fragment in used_fragments {
-                    let from = fragment_path.join(&fragment);
-                    let to = dest.join(&fragment);
+                    let from = fragment;
+                    let fragment = from
+                        .strip_prefix(&fragment_path)
+                        .expect("We feed in a path prefixed, so outcome must maintain that. qed")
+                        .to_owned();
+                    // let from = fragment_path.join(&fragment);
+                    let to = asset_path.join(&fragment);
                     log::info!("Copying {} -> {}", from.display(), to.display());
                     fs::copy(from, to)?;
                 }
             } else {
                 log::debug!(
-                    "Fragments already in the right place, copying nothing {}",
-                    fragment_path.display()
+                    "Fragments already in the right place {}, copying nothing.",
+                    asset_path.display()
                 )
             }
-
             Ok(book)
         } else {
             Err(Error::KeySectionNotFound)

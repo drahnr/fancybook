@@ -79,31 +79,32 @@ pub fn dollar_split_tags_iter<'a>(source: &'a str) -> impl Iterator<Item = Split
                 let mut is_between_dollar_content = false;
 
                 // use to collect ranges
-                let mut tagswpos = Vec::from_iter(line_content.char_indices().enumerate().filter_map(
-                    |(il_char_offset, (il_byte_offset, c))| {
-                        match c {
-                            '$' if !is_intra_inline_code => {
-                                is_between_dollar_content = !is_between_dollar_content;
-                                current.column = il_char_offset;
-                                let dollar = SplitTagPosition {
-                                    which: if is_between_dollar_content {
-                                        Dollar::Start(&line_content[il_byte_offset..][..1])
-                                    } else {
-                                        Dollar::End(&line_content[il_byte_offset..][..1])
-                                    },
-                                    lico: current,
-                                    byte_offset: byte_offset + il_byte_offset,
-                                };
-                                return Some(dollar);
+                let mut tagswpos =
+                    Vec::from_iter(line_content.char_indices().enumerate().filter_map(
+                        |(il_char_offset, (il_byte_offset, c))| {
+                            match c {
+                                '$' if !is_intra_inline_code => {
+                                    is_between_dollar_content = !is_between_dollar_content;
+                                    current.column = il_char_offset;
+                                    let dollar = SplitTagPosition {
+                                        which: if is_between_dollar_content {
+                                            Dollar::Start(&line_content[il_byte_offset..][..1])
+                                        } else {
+                                            Dollar::End(&line_content[il_byte_offset..][..1])
+                                        },
+                                        lico: current,
+                                        byte_offset: byte_offset + il_byte_offset,
+                                    };
+                                    return Some(dollar);
+                                }
+                                '`' => {
+                                    is_intra_inline_code = !is_intra_inline_code;
+                                }
+                                _ => {}
                             }
-                            '`' => {
-                                is_intra_inline_code = !is_intra_inline_code;
-                            }
-                            _ => {}
-                        }
-                        None
-                    },
-                ));
+                            None
+                        },
+                    ));
 
                 if tagswpos.len() & 0x1 != 0 {
                     log::warn!("Inserting $-sign at end of line #{lineno}!");

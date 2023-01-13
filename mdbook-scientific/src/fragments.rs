@@ -1,6 +1,7 @@
 use fs_err as fs;
 use itertools::Itertools;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::{io::Write, str, usize};
 
@@ -26,12 +27,14 @@ fn find_binary(name: &str) -> Result<std::path::PathBuf> {
 }
 
 /// Generate SVG file from latex file with given zoom
-pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
-    let dest_path = path.parent().expect("Parent path must exist. qed");
-    let file: &Path = path.file_name().unwrap().as_ref();
+///
+/// `base` is used as based and added with extensions for intermediate files
+pub fn generate_svg_from_latex(base: &Path, zoom: f32) -> Result<PathBuf> {
+    let dest_path = base.parent().expect("Parent path must exist. qed");
+    let file: &Path = base.file_name().unwrap().as_ref();
 
     // use latex to generate a dvi
-    let dvi_path = path.with_extension("dvi");
+    let dvi_path = base.with_extension("dvi");
     if !dvi_path.exists() {
         let latex_path = find_binary("latex")?;
 
@@ -39,8 +42,7 @@ pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
             .current_dir(dest_path)
             //.arg("--jobname").arg(&dvi_path)
             .arg(&file.with_extension("tex"))
-            .output()
-            .expect("Could not spawn latex");
+            .output()?;
 
         if !cmd.status.success() {
             let buf = String::from_utf8_lossy(&cmd.stdout);
@@ -83,7 +85,7 @@ pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
     }
 
     // convert the dvi to a svg file with the woff font format
-    let svg_path = path.with_extension("svg");
+    let svg_path = base.with_extension("svg");
     if !svg_path.exists() && dvi_path.exists() {
         let dvisvgm_path = find_binary("dvisvgm")?;
 
@@ -94,8 +96,7 @@ pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
             .arg("--font-format=woff")
             .arg(&format!("--zoom={}", zoom))
             .arg(&dvi_path)
-            .output()
-            .expect("Couldn't run svisvgm properly!");
+            .output()?;
 
         let buf = String::from_utf8_lossy(&cmd.stderr);
         if !cmd.status.success() || buf.contains("error:") {
@@ -103,7 +104,7 @@ pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(svg_path)
 }
 
 /// Generate latex file from gnuplot
@@ -111,22 +112,22 @@ pub fn generate_svg_from_latex(path: &Path, zoom: f32) -> Result<()> {
 /// This function generates a latex file with gnuplot `epslatex` backend and then source it into
 /// the generate latex function
 fn generate_latex_from_gnuplot<'a>(
-    dest_path: &Path,
+    dest_dir: &Path,
     content: &Content<'a>,
-    filename: &str,
+    filename: &Path,
 ) -> Result<()> {
     let content = content.trimmed().as_str();
     let gnuplot_path = find_binary("gnuplot")?;
 
     let cmd = Command::new(gnuplot_path)
         .stdin(Stdio::piped())
-        .current_dir(dest_path)
+        .current_dir(dest_dir)
         .arg("-p")
         .spawn()?;
 
     let mut stdin = cmd.stdin.expect("Stdin of gnuplot spawn must exist. qed");
 
-    stdin.write_all(format!("set output '{}.tex'\n", filename).as_bytes())?;
+    stdin.write_all(format!("set output '{}'\n", filename.display()).as_bytes())?;
     stdin.write_all("set terminal epslatex color standalone\n".as_bytes())?;
     stdin.write_all(content.as_bytes())?;
 
@@ -135,15 +136,24 @@ fn generate_latex_from_gnuplot<'a>(
 
 /// Parse an equation with the given zoom
 pub fn generate_replacement_file_from_template<'a>(
-    dest_path: &Path,
+    fragment_path: &Path,
+    asset_path: &Path,
     content: &Content<'a>,
     zoom: f32,
     chapter_number: &str,
     _chapter_name: &str,
 ) -> Result<Replacement<'a>> {
     let content_hash = hash(content.as_str());
-    let name = format!("fragment_{}__{}", &chapter_number, &content_hash.as_str()[..10]).replace('.', "_");
-    let path = dest_path.join(&name);
+    let name = format!(
+        "scientific_{}__{}",
+        &chapter_number,
+        &content_hash.as_str()[..10]
+    )
+    .replace('.', "_");
+    let name = PathBuf::from(name).with_extension("svg");
+
+    let fragment_file = fragment_path.join(&name);
+    let svg_asset_file = asset_path.join(&name);
 
     log::info!(
         r#"Found equation from {}:{}..{}:{}:
@@ -156,7 +166,7 @@ pub fn generate_replacement_file_from_template<'a>(
     );
     log::debug!(
         "Using temporary helper file {}",
-        path.with_extension("tex").display()
+        fragment_file.with_extension("tex").display()
     );
 
     let tex = content.trimmed().as_str();
@@ -166,7 +176,7 @@ pub fn generate_replacement_file_from_template<'a>(
         .create(true)
         .truncate(true)
         .write(true)
-        .open(path.with_extension("tex"))?;
+        .open(fragment_file.with_extension("tex"))?;
 
     let fragment = include_str!("fragment.tex")
         .split("$$")
@@ -178,84 +188,115 @@ pub fn generate_replacement_file_from_template<'a>(
         })
         .join("$$");
 
+    let bytes = fragment.as_bytes();
     file.write_all(fragment.as_bytes())?;
 
-    generate_svg_from_latex(&path, zoom)?;
+    let svg_fragment_file = generate_svg_from_latex(&fragment_file, zoom)?;
+    log::debug!(
+        "Wrote fragment with {} bytes to {}",
+        bytes.len(),
+        fragment_file.with_extension("tex").display()
+    );
+
+    let svg = fs::read_to_string(&svg_fragment_file)?;
+    log::debug!(
+        "Generated svg with {} bytes to {}",
+        svg.len(),
+        svg_fragment_file.display()
+    );
 
     Ok(Replacement {
         content: content.clone(),
         intermediate: None,
-        svg: PathBuf::from(name + ".svg"),
+        svg_fragment_file,
+        svg_asset_file,
     })
 }
 
 /// Parse a latex content and convert it to a SVG file
-pub fn parse_latex<'a>(dest_path: &Path, content: &Content<'a>) -> Result<Replacement<'a>> {
+pub fn parse_latex<'a>(
+    fragment_path: &Path,
+    asset_path: &Path,
+    content: &Content<'a>,
+) -> Result<Replacement<'a>> {
     let tex = content.trimmed().as_str();
     let name = hash(tex);
-    let path = dest_path.join(&name);
+    let name = PathBuf::from(name).with_extension("svg");
+    let svg_fragment_file = fragment_path.join(&name);
+    let svg_asset_file = asset_path.join(&name);
 
     // create a new tex file containing the equation
-    if !path.with_extension("tex").exists() {
+    if !svg_fragment_file.with_extension("tex").exists() {
         let mut file = fs::OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
-            .open(path.with_extension("tex"))?;
+            .open(svg_fragment_file.with_extension("tex"))?;
 
         file.write_all(tex.as_bytes())?;
     }
 
-    generate_svg_from_latex(&path, 1.0)?;
+    let svg_fragment_file = generate_svg_from_latex(&svg_fragment_file, 1.0)?;
 
     Ok(Replacement {
         content: content.clone(),
         intermediate: None,
-        svg: PathBuf::from(name + ".svg"),
+        svg_fragment_file,
+        svg_asset_file,
     })
 }
 
 /// Parse a gnuplot file and generate a SVG file
-pub fn parse_gnuplot<'a>(dest_path: &Path, content: &Content<'a>) -> Result<Replacement<'a>> {
+pub fn parse_gnuplot<'a>(
+    fragment_path: &Path,
+    asset_path: &Path,
+    content: &Content<'a>,
+) -> Result<Replacement<'a>> {
     let name = hash(content.as_str());
-    let path = dest_path.join(&name);
+    let name = PathBuf::from(name).with_extension("svg");
 
+    let path = fragment_path.join(&name);
     if !path.with_extension("tex").exists() {
         //let name_plot = format!("{}_plot", name);
-        generate_latex_from_gnuplot(dest_path, content, &name)?;
+        generate_latex_from_gnuplot(fragment_path, content, path.with_extension("tex").as_path())?;
     }
 
-    if !path.with_extension("svg").exists() {
-        generate_svg_from_latex(&path, 1.0)?;
-    }
+    let svg_asset_path = asset_path.join(&name);
+
+    let svg_fragment_path = generate_svg_from_latex(&path, 1.0)?;
 
     let intermediate = fs::read_to_string(path.with_extension("tex"))?;
 
     Ok(Replacement {
         content: content.to_owned(),
         intermediate: Some(intermediate),
-        svg: PathBuf::from(name + ".svg"),
+        svg_fragment_file: svg_fragment_path,
+        svg_asset_file: svg_asset_path,
     })
 }
 
 /// Parse gnuplot without using the latex backend
-pub fn parse_gnuplot_only<'a>(dest_path: &Path, content: &Content<'a>) -> Result<Replacement<'a>> {
+pub fn parse_gnuplot_only<'a>(
+    fragment_path: &Path,
+    asset_path: &Path,
+    content: &Content<'a>,
+) -> Result<Replacement<'a>> {
     let gnuplot_input = content.trimmed().as_str();
     let name = hash(gnuplot_input);
-    let path = dest_path.join(&name);
+    let name = PathBuf::from(name).with_extension("svg");
+    let svg_fragment_path = fragment_path.join(&name);
+    let svg_asset_path = asset_path.join(&name);
 
-    if !path.with_extension("svg").exists() {
+    if !svg_fragment_path.with_extension("svg").exists() {
         let gnuplot_path = find_binary("gnuplot")?;
         let cmd = Command::new(gnuplot_path)
             .stdin(Stdio::piped())
-            .current_dir(dest_path)
+            .current_dir(fragment_path)
             .arg("-p")
-            .spawn()
-            .unwrap();
-        //.expect("Could not spawn gnuplot");
+            .spawn()?;
 
         let mut stdin = cmd.stdin.unwrap();
-        stdin.write_all(format!("set output '{}.svg'\n", name).as_bytes())?;
+        stdin.write_all(format!("set output '{}'\n", name.display()).as_bytes())?;
         stdin.write_all("set terminal svg\n".as_bytes())?;
         stdin.write_all("set encoding utf8\n".as_bytes())?;
         stdin.write_all(gnuplot_input.as_bytes())?;
@@ -264,7 +305,8 @@ pub fn parse_gnuplot_only<'a>(dest_path: &Path, content: &Content<'a>) -> Result
     Ok(Replacement {
         content: content.clone(),
         intermediate: None,
-        svg: PathBuf::from(name + ".svg"),
+        svg_fragment_file: svg_fragment_path,
+        svg_asset_file: svg_asset_path,
     })
 }
 

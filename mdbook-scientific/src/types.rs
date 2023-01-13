@@ -1,7 +1,7 @@
 use crate::errors;
+pub(crate) use crate::preprocess::parse::types::*;
 use std::path::PathBuf;
 use std::str::FromStr;
-pub(crate) use crate::preprocess::parse::types::*;
 
 /// Enum covering all supported renderers
 ///
@@ -28,14 +28,17 @@ impl FromStr for SupportedRenderer {
     }
 }
 
-
 /// Parsed content reference with a path to the replacement svg
+#[derive(Debug)]
 pub struct Replacement<'a> {
     pub content: Content<'a>,
 
     /// Intermediate representation if there is any, directly usable with latex/tectonic backends;.
     pub(crate) intermediate: Option<String>,
-    pub svg: PathBuf,
+    /// Path to the rendered context, possibly an svg or pdf or png file. Double check.
+    pub svg_fragment_file: PathBuf,
+    /// Path where the file will ulitmately reside in, must be used for referencing in output
+    pub svg_asset_file: PathBuf,
 }
 
 impl<'a> Replacement<'a> {
