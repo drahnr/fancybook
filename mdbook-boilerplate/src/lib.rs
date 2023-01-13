@@ -110,7 +110,7 @@ pub fn launch<Pre: Preprocessor + 'static>(
         let close = style.value("]");
         writeln!(
             formatter,
-            "{open}{time} {lvl:5} pre:{name} {prefix}{close} {args}"
+            "{open}{time} {lvl:5} {prefix} {name} {close} {args}"
         )
     });
     builder.filter(None, LevelFilter::Debug).init();

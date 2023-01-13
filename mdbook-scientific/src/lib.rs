@@ -117,6 +117,7 @@ impl Scientific {
             // process blocks like `$$ .. $$`
             book.for_each_mut(|item| {
                 if let Err(_) = error {
+                    log::debug!("Previous error, skipping chapter processing.");
                     return;
                 }
 

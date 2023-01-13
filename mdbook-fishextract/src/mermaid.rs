@@ -31,7 +31,7 @@ fn create_object_from_mermaid(
     // only use dest for actually file usage, but only ref by filename, we are in `src` when it's going to be rendered
     if dest.exists() {
         log::debug!(
-            "Mermaid file already present, unique by hash {}",
+            "Fishextract already present, unique by hash, skipping re-generation of {}",
             dest.display()
         );
         return Ok(filename);

@@ -83,7 +83,7 @@ fn main() -> color_eyre::Result<()> {
         let close = style.value("]");
         writeln!(
             formatter,
-            "{open}{time} {lvl:5} {name} {prefix}{close} {args}"
+            "{open}{time} {lvl:5} {prefix} {name}{close} {args}"
         )
     });
     builder.filter(None, LevelFilter::Debug).init();
