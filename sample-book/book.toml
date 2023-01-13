@@ -7,6 +7,7 @@ src = "src"
 [preprocessor.fishextract]
 assets = "assets/fishextract"
 fragment_path = "fragments"
+renderer = ["tectonic", "latex"]
 
 
 [preprocessor.scientific]
@@ -16,5 +17,5 @@ fragment_path = "fragments"
 
 [output.tectonic]
 latex = true    # default = true
-pdf = false     # default = false
 markdown = true # default = false
+pdf = true      # default = false
