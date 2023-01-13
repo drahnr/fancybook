@@ -126,25 +126,20 @@ impl Fishextract {
 
             // copy fragments over to the asset path
             let asset_path = asset_path(cfg);
-            let dest = ctx.root.join(asset_path);
 
-            if !dest.exists() {
-                fs::create_dir_all(&dest)?;
-            }
-
-            let dest = fs::canonicalize(dest)?;
+            fs::create_dir_all(&asset_path)?;
 
             // copy all used fragments
-            if fragment_path != dest {
+            if fragment_path != asset_path {
                 for fragment in used_fragments {
                     let from = fragment_path.join(&fragment);
-                    let to = dest.join(&fragment);
-                    log::info!("Copying {} -> {}", from.display(), to.display());
+                    let to = asset_path.join(&fragment);
+                    log::info!("🐟 Copying {} -> {}", from.display(), to.display());
                     fs::copy(from, to)?;
                 }
             } else {
                 log::debug!(
-                    "Fragments already in the right place, copying nothing {}",
+                    "🐟 Fragments already in the right place, copying nothing {}",
                     fragment_path.display()
                 )
             }

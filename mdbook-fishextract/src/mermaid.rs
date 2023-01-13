@@ -20,7 +20,7 @@ fn create_object_from_mermaid(
 
     const FILEFMT: &str = "pdf";
     let filename = PathBuf::from(format!(
-        "mermaid_{}_{}__{}.{}",
+        "fishextract_{}_{}__{}.{}",
         chapter_number.replace('.', "_"),
         counter,
         code_hash,

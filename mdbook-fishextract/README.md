@@ -26,8 +26,8 @@ For block equation rendering use the following syntax
 ..
 ```
 
-and replaces them by an image link 
+and replaces them by an image link
 
 ```md
-![mermaid graph {chapter}](src/assets/mermaid_{chapter}__{hash:10}.pdf "Your title")
+![mermaid graph {chapter}](src/assets/fishextract_{chapter|replace('.' -> '_')}__{hash:10}.pdf "Your title")
 ```
