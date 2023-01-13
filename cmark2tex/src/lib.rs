@@ -284,9 +284,8 @@ where
 
                     // create output directories, just in case.
                     fs::create_dir_all(path_png.parent().unwrap())?;
-                    
-                    let img = svg2png(&path)?;
 
+                    let img = svg2png(&path)?;
 
                     fs::write(dbg!(&path_png), img)?;
                     path_str = path_png

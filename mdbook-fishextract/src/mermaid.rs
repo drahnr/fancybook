@@ -135,7 +135,6 @@ pub fn replace_mermaid_charts(
                         chapter_number, chapter_name, chapter_path.display(),
                         image_path.display()
                     );
-
                     let desc = CowStr::from(format!(
                         "Chapter {}, Graphic {}",
                         chapter_number, state.counter
