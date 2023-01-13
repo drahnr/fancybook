@@ -1,0 +1,20 @@
+[book]
+title = "foo test book"
+authors = ["Bernhard Schuster <bernhard@ahoi.io>"]
+multilingual = false
+src = "src"
+
+[preprocessor.fishextract]
+assets = "assets/fishextract"
+fragment_path = "fragments"
+
+
+[preprocessor.scientific]
+renderer = ["tectonic", "latex", "html"]
+assets = "assets/scientific"
+fragment_path = "fragments"
+
+[output.tectonic]
+latex = true    # default = true
+pdf = false     # default = false
+markdown = true # default = false
