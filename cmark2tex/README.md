@@ -13,6 +13,8 @@ A small utility to convert markdown files to tex. Forked originally from [md2pdf
 
 Used by [mdbook-tectonic](https://github.com/drahnr/mdbook-tectonic) to generate PDF's.
 
+Forked from <https://github.com/lbeckman314/md2tex> forked from <https://gitea.tforgione.fr/tforgione/md2pdf>.
+
 ## Usage
 
 ### Lib

@@ -3,8 +3,8 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error(transparent)]
-    Svg(#[from] resvg::usvg::Error),
+    #[error("Failed to parse svg: {1}")]
+    Svg(#[source] Option<resvg::usvg::Error>, String),
 
     #[error(transparent)]
     PngEnc(#[from] png::EncodingError),

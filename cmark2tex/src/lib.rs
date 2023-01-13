@@ -17,6 +17,7 @@ use std::ffi::OsStr;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
+use std::path::PathBuf;
 use std::string::String;
 use walkdir::WalkDir;
 
@@ -42,7 +43,7 @@ pub struct CurrentType {
 }
 
 /// Converts markdown string to tex string.
-pub fn cmark_to_tex(cmark: impl AsRef<str>) -> Result<String> {
+pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Result<String> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_FOOTNOTES);
@@ -51,11 +52,11 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>) -> Result<String> {
 
     let parser = Parser::new_ext(cmark.as_ref(), options);
 
-    parser_to_tex(parser)
+    parser_to_tex(parser, asset_path.as_ref())
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
-pub fn parser_to_tex<'a, P>(parser: P) -> Result<String>
+pub fn parser_to_tex<'a, P>(parser: P, asset_path: &Path) -> Result<String>
 where
     P: 'a + Iterator<Item = Event<'a>>,
 {
@@ -73,7 +74,7 @@ where
     let mut buffer = String::new();
 
     for event in parser {
-        debug!("Event: {:?}", event);
+        log::debug!("Event: {:?}", event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
@@ -142,7 +143,7 @@ where
                     let mut found = false;
 
                     // iterate through `src` directory to find the resource.
-                    for entry in WalkDir::new("../../src").into_iter().filter_map(|e| e.ok()) {
+                    for entry in WalkDir::new(asset_path).into_iter().filter_map(|e| e.ok()) {
                         let _path = entry.path().to_str().unwrap();
                         let _url = &url.clone().into_string().replace("../", "");
                         if _path.ends_with(_url) {
@@ -271,29 +272,42 @@ where
 
                 // if image path ends with ".svg", run it through
                 // svg2png to convert to png file.
-                if let Some("svg") = get_extension(&path) {
-                    let img = svg2png(path.clone().into_string())?;
+                if let Some("svg") = get_extension(dbg!(&path)) {
+                    let path = PathBuf::from(path.as_ref());
+                    let path_png = path.with_extension("png");
+                    log::error!(
+                        "Replacing svg with png: {} -> {} where {}",
+                        path.display(),
+                        path_png.display(),
+                        std::env::current_dir().unwrap().to_str().unwrap()
+                    );
 
-                    let mut filename_png = String::from(path.clone().into_string());
-                    filename_png = filename_png.replace(".svg", ".png");
-                    debug!("filename_png: {}", filename_png);
+                    // create output directories, just in case.
+                    fs::create_dir_all(path_png.parent().unwrap())?;
+                    
+                    let img = svg2png(&path)?;
 
-                    // create output directories.
-                    let _ = fs::create_dir_all(&filename_png);
-                    let _ = fs::create_dir_all(Path::new(&filename_png).parent().unwrap());
 
-                    fs::write(&filename_png, img)?;
-                    path_str = filename_png.clone();
+                    fs::write(dbg!(&path_png), img)?;
+                    path_str = path_png
+                        .to_str()
+                        .expect("Works, we just created it from a valid str. qed")
+                        .to_owned();
                 }
 
-                output.push_str("\\begin{figure}\n");
-                output.push_str("\\centering\n");
-                output.push_str("\\includegraphics[width=\\textwidth]{");
-                output.push_str(&format!("../../src/{path}", path = path_str));
-                output.push_str("}\n");
-                output.push_str("\\caption{");
-                output.push_str(&*title);
-                output.push_str("}\n\\end{figure}\n");
+                let caption = &*title;
+                let path = path_str;
+                output.push_str(
+                    format!(
+                        r###"\begin{{figure}}
+\centering
+\includegraphics[width=\textwidth]{{{path}}}
+\caption{{{caption}}}
+\end{{figure}}
+"###
+                    )
+                    .as_str(),
+                );
             }
 
             Event::Start(Tag::Item) => output.push_str("\\item "),
@@ -331,7 +345,7 @@ where
                 current.event_type = EventType::Html;
                 // convert common html patterns to tex
                 let parsed = parse_html(&t.into_string());
-                output.push_str(cmark_to_tex(parsed)?.as_str());
+                output.push_str(cmark_to_tex(parsed, asset_path)?.as_str());
                 current.event_type = EventType::Text;
             }
 
@@ -434,18 +448,20 @@ pub fn html2tex(html: String, current: &CurrentType) -> Result<String> {
         let src = Regex::new(r#"src="([a-zA-Z0-9-/_.]*)"#).unwrap();
         let caps = src.captures(&tex).unwrap();
         let path_raw = caps.get(1).unwrap().as_str();
-        let mut path = format!("../../src/{path}", path = path_raw);
+        let path = format!("../../{path}", path = path_raw);
 
         // if path ends with ".svg", run it through
         // svg2png to convert to png file.
-        if get_extension(&path).unwrap() == "svg" {
-            let img = svg2png(path.to_string()).unwrap();
-            path = path.replace(".svg", ".png");
-            path = path.replace("../../", "");
-            debug!("path!: {}", &path);
+        if let Some("svg") = get_extension(&path) {
+            let orig = &path;
+            let path = PathBuf::from(orig.as_str());
+            let img = svg2png(&path)?;
+
+            let path = PathBuf::from(orig.replace("../../", "")).with_extension("png");
+            debug!("path!: {}", path.display());
 
             // create output directories.
-            let _ = fs::create_dir_all(Path::new(&path).parent().unwrap());
+            let _ = fs::create_dir_all(path.parent().unwrap());
 
             fs::write(&path, img)?;
         }
@@ -459,7 +475,7 @@ pub fn html2tex(html: String, current: &CurrentType) -> Result<String> {
             }
         }
 
-        output.push_str(&path);
+        output.push_str(path.as_str());
         output.push_str(r"}\end{center}");
         output.push_str("\n");
 
@@ -529,10 +545,34 @@ where
 /// Converts an SVG file to a PNG file.
 ///
 /// Example: foo.svg becomes foo.svg.png
-pub fn svg2png(filename: String) -> Result<Vec<u8>> {
-    debug!("svg2png path: {}", &filename);
-    let data = fs::read_to_string(filename)?;
-    let rtree = usvg::Tree::from_data(data.as_bytes(), &usvg::Options::default())?;
+pub fn svg2png(svg_path: &Path) -> Result<Vec<u8>> {
+    debug!("svg2png operating on {}", svg_path.display());
+    let data = fs::read_to_string(svg_path)?;
+
+    if data.is_empty() {
+        Err(Error::Svg(
+            None,
+            format!("Given SVG file is empty {}", svg_path.display()),
+        ))?
+    }
+    const MIN_BYTE_LENGTH: usize = 30;
+    if data.len() < MIN_BYTE_LENGTH {
+        Err(Error::Svg(
+            None,
+            format!(
+                "Given SVG file is less than {} bytes: {}",
+                MIN_BYTE_LENGTH,
+                svg_path.display()
+            ),
+        ))?
+    }
+
+    let rtree = usvg::Tree::from_data(data.as_bytes(), &usvg::Options::default()).map_err(|e| {
+        Error::Svg(
+            e.into(),
+            format!("Loading failure for svg {}", svg_path.display()),
+        )
+    })?;
     let mut pixi = Pixmap::new(rtree.size.width() as u32, rtree.size.height() as u32).unwrap();
     render(
         &rtree,
@@ -593,7 +633,7 @@ formula"##
     #[test]
     fn cmark_to_tex_image() {
         assert_eq!(
-            "\n\\begin{figure}\n\\centering\n\\includegraphics[width=\\textwidth]{../../src/image.png}\n\\caption{}\n\\end{figure}\n~\\\\\n",
+            "\n\\begin{figure}\n\\centering\n\\includegraphics[width=\\textwidth]{../../image.png}\n\\caption{}\n\\end{figure}\n~\\\\\n",
             cmark_to_tex("![](image.png)").unwrap()
         );
     }
