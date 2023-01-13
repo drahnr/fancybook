@@ -64,13 +64,29 @@ enum Error {
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
+    let prefix = "🌋";
+    let name = "tectonic";
     use env_logger::Builder;
     use log::LevelFilter;
     let mut builder = Builder::from_default_env();
-    builder
-        .filter(None, LevelFilter::Debug)
-        .filter(Some("cmark2tex"), LevelFilter::Warn)
-        .init();
+    builder.format(move |formatter, record| {
+        let time = formatter.timestamp();
+        let lvl = formatter.default_styled_level(record.level());
+        let args = record.args();
+
+        let style = formatter
+            .style()
+            .set_color(env_logger::fmt::Color::Black)
+            .set_intense(true)
+            .clone();
+        let open = style.value("[");
+        let close = style.value("]");
+        writeln!(
+            formatter,
+            "{open}{time} {lvl:5} {name} {prefix}{close} {args}"
+        )
+    });
+    builder.filter(None, LevelFilter::Debug).init();
 
     let stdin = BufReader::new(io::stdin());
 
@@ -156,7 +172,7 @@ fn main() -> color_eyre::Result<()> {
 
     if cfg.latex || cfg.pdf {
         // convert markdown data to LaTeX
-        latex.push_str(&cmark_to_tex(content)?);
+        latex.push_str(&cmark_to_tex(content, &ctx.destination)?);
 
         // Insert new LaTeX data into template after "%% mdbook-tectonic begin".
         const BEGIN: &str = "mdbook-tectonic begin";
@@ -180,7 +196,7 @@ fn main() -> color_eyre::Result<()> {
 
             // Write PDF with tectonic.
             let cwd = std::env::current_dir()?;
-            println!("Writing PDF to {} with Tectonic...", cwd.display());
+            log::info!("Writing PDF to {} with Tectonic...", cwd.display());
             // FIXME launch tectonic process
             let tectonic = which::which("tectonic")?;
             let mut child = std::process::Command::new(tectonic)
@@ -291,13 +307,13 @@ fn parse_image_tag<'a>(
 ) -> std::io::Result<Tag<'a>> {
     // cleaning and converting the path found.
     let imagefn = path.as_ref().strip_prefix("./").unwrap_or(path.as_ref());
-    let source = &context.config.book.src.join(imagefn);
-    let sourceimage = &context.root.join(&source);
-    let targetimage = &context.destination.join(&source);
+    // let source = &context.config.book.root.join(imagefn);
+    let sourceimage = &context.root.join(imagefn);
+    let targetimage = &context.destination.join(imagefn);
 
     if sourceimage != targetimage {
         log::debug!(
-            "Copying {} -> {}",
+            "🌋 Copying {} -> {}",
             sourceimage.display(),
             targetimage.display()
         );
