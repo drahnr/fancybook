@@ -150,7 +150,7 @@ pub fn replace_mermaid_charts(
                     events.push(Event::Start(inject.clone()));
                     events.push(Event::Text(desc));
                     events.push(Event::End(inject));
-                    events.push(Event::Text(CowStr::Borrowed("\n")));
+                    events.push(Event::SoftBreak);
                     continue;
                 }
             }
