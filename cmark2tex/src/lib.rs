@@ -275,7 +275,7 @@ where
                 if let Some("svg") = get_extension(dbg!(&path)) {
                     let path = PathBuf::from(path.as_ref());
                     let path_png = path.with_extension("png");
-                    log::error!(
+                    log::debug!(
                         "Replacing svg with png: {} -> {} where {}",
                         path.display(),
                         path_png.display(),
