@@ -11,7 +11,7 @@ pub enum Error {
 
     #[error(transparent)]
     MdBook(#[from] mdbook::errors::Error),
-    
+
     #[error("Provided renderer is not supported: {0}")]
     RendererNotSupported(String),
 }

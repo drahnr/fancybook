@@ -6,10 +6,10 @@ authors = [
   "Sebastian Steiner <sebastian.steiner@tuta.io>",
   "Bernhard Schuster <bernhard@ahoi.io>",
 ]
-description = "A small utility to convert markdown files to pdf exploiting tectonic. This is a forked version based off of tforgione's awesome library (https://gitea.tforgione.fr/tforgione/md2pdf/)."
+description = "A small utility to convert markdown files to pdf exploiting tectonic."
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/lbeckman314/md2tex"
+repository = "https://github.com/drahnr/fancybook/tree/master/cmark2tex"
 readme = "README.md"
 keywords = ["tex", "markdown", "cmark", "commonmark"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

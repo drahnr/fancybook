@@ -1,22 +1,26 @@
-
-pub use toml::value::Table;
-pub use mdbook::preprocess::Preprocessor;
+pub use clap::Parser;
+pub use color_eyre::eyre::Report;
+pub use color_eyre::eyre::Result;
 pub use mdbook::preprocess::CmdPreprocessor;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::io;
-use std::process;
+pub use mdbook::preprocess::Preprocessor;
 use sha2::Digest;
 use sha2::Sha256;
-pub use clap::Parser;
-pub use color_eyre::eyre::Result;
-pub use color_eyre::eyre::Report;
+use std::io;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process;
+use std::str::FromStr;
+pub use toml::value::Table;
 
 mod errors;
 pub use crate::errors::*;
 
-/// Get a config value.
-pub fn get_config_value(cfg: &toml::value::Table, key: &str, default: impl Into<PathBuf>) -> PathBuf {
+/// Get a config value
+pub fn get_config_value(
+    cfg: &toml::value::Table,
+    key: &str,
+    default: impl Into<PathBuf>,
+) -> PathBuf {
     cfg.get(key)
         .map(|x| x.as_str().expect("Config path is valid UTF8. qed"))
         .map(PathBuf::from)
@@ -28,12 +32,10 @@ pub fn fragment_path(cfg: &toml::value::Table) -> PathBuf {
     get_config_value(cfg, "fragment_path", "fragments")
 }
 
-
 /// Determine the final assets path
 pub fn asset_path(cfg: &toml::value::Table) -> PathBuf {
     get_config_value(cfg, "assets", PathBuf::from("src").join("assets"))
 }
-
 
 /// Short hash. Useful in conjunction with chapter info.
 pub fn short_hash(input: impl AsRef<str>) -> String {
@@ -69,15 +71,8 @@ impl FromStr for SupportedRenderer {
     }
 }
 
-
-
-
 #[derive(clap::Parser, Debug)]
-#[command(
-    author,
-    version,
-    about,
-)]
+#[command(author, version, about)]
 pub struct Args {
     #[command(subcommand)]
     pub supports: Option<Sub>,
@@ -89,16 +84,40 @@ pub enum Sub {
     Supports { renderer: String },
 }
 
-pub fn launch<Pre: Preprocessor>(preprocessor: Pre, args: impl Into<Args>) -> color_eyre::eyre::Result<()> {
+pub fn launch<Pre: Preprocessor + 'static>(
+    preprocessor: Pre,
+    args: impl Into<Args>,
+    prefix: &'static str,
+) -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
 
+    let name = preprocessor.name().to_owned();
     use env_logger::Builder;
     use log::LevelFilter;
     let mut builder = Builder::from_default_env();
+    builder.format(move |formatter, record| {
+        let name = name.as_str();
+        let time = formatter.timestamp();
+        let lvl = formatter.default_styled_level(record.level());
+        let args = record.args();
+
+        let style = formatter
+            .style()
+            .set_color(env_logger::fmt::Color::Black)
+            .set_intense(true)
+            .clone();
+        let open = style.value("[");
+        let close = style.value("]");
+        writeln!(
+            formatter,
+            "{open}{time} {lvl:5} pre:{name} {prefix}{close} {args}"
+        )
+    });
     builder.filter(None, LevelFilter::Debug).init();
 
     log::debug!(
-        " called from {}!",
+        "{} called from {}!",
+        preprocessor.name(),
         std::env::current_dir().unwrap().display()
     );
 
@@ -151,10 +170,7 @@ mod tests {
 
     #[test]
     fn clap_supports() {
-        assert_matches!(
-            Args::try_parse_from(vec!["mdbook-foo", "supports"]),
-            Err(_)
-        );
+        assert_matches!(Args::try_parse_from(vec!["mdbook-foo", "supports"]), Err(_));
         assert_matches!(Args::try_parse_from(vec!["mdbook-foo", "supports", "tectonic"]).unwrap(),
         Args {
             supports: Some(Sub::Supports{ renderer }),
