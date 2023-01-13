@@ -20,7 +20,7 @@ pulldown-cmark = "0.9"
 pulldown-cmark-to-cmark = "10"
 serde = "1.0.104"
 serde_derive = "1.0.104"
-cmark2tex = { version = "0.3.0-beta.2", path = "../cmark2tex" }
+cmark2tex = { path = "../cmark2tex" }
 which = "4"
 tempfile = "3"
 semver = "1"
