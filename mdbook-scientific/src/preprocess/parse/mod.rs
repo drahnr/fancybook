@@ -165,13 +165,12 @@ where
         .last()
         .filter(|tag| tag.byte_offset < source.len())
         .map(|tag| {
-            let byte_range = 0..(tag.byte_offset);
+            let byte_range = (tag.byte_offset + tag.delimiter.as_str().len())..source.len();
             let s = &source[byte_range.clone()];
             let (last_lineno, last_linecontent) = s
                 .lines()
                 .enumerate()
-                .last()
-                .expect("There always is one line. qed");
+                .last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
             Tagged::Keep(Content {
                 s,
                 start: tag.lico,
