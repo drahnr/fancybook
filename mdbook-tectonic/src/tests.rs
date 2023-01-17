@@ -19,9 +19,15 @@ fn test_traverse_markdown() -> Result<(), Box<dyn std::error::Error>> {
         mdbook::Config::default(),
         Path::new("/tmp/dest/"),
     );
-    let new_content = traverse_markdown("![123](images/chap/foo.png)", &path, &context).unwrap();
+    let new_content = traverse_markdown(
+        "![123](images/chap/foo.png)",
+        &path,
+        &["somewhere"],
+        &context,
+    )
+    .unwrap();
     assert_eq!("![123](images/chap/foo.png)", new_content);
-    let respath = Path::new("/tmp/dest/images/chap/foo.png");
+    let respath = Path::new("/tmp/dest/somewhere/images/chap/foo.png");
     assert!(respath.exists());
 
     fs::remove_dir_all("/tmp/test")?;

@@ -1,21 +1,29 @@
 [book]
-title = "foo test book"
-authors = ["Bernhard Schuster <bernhard@ahoi.io>"]
+language = "en"
 multilingual = false
 src = "src"
+title = "foo book"
 
 [preprocessor.fishextract]
-renderer = ["tectonic", "latex"]
+# there is mermaid support via js via the mermaid preprocessort
+renderer = ["tectonic", "markdown", "latex"]
+fragment_path = "fragments/fishextract"
 assets = "assets/fishextract"
-fragment_path = "fragments"
 
+[preprocessor.mermaid]
+renderer = ["html"]
+command = "mdbook-mermaid"
 
 [preprocessor.scientific]
-renderer = ["tectonic", "latex", "html"]
+# there is mathjax support via js in the html renderer
+renderer = ["tectonic", "markdown", "latex"]
+fragment_path = "fragments/scientific"
 assets = "assets/scientific"
-fragment_path = "fragments"
+
+# additional-js = [ "mermaid.min.js", "mermaid-init.js" ]
 
 [output.tectonic]
 latex = true    # default = true
 markdown = true # default = false
 pdf = true      # default = false
+assets = ["assets/scientific", "assets/fishextract"]

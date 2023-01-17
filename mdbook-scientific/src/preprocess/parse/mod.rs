@@ -160,17 +160,15 @@ where
     I: Iterator<Item = SplitTagPosition<'a>> + Clone,
 {
     // insert a trailing item if the document does not end with i.e. a `$` sign
-    let last = dbg!(iter
+    let last = iter
         .clone()
         .last()
         .filter(|tag| tag.byte_offset < source.len())
         .map(|tag| {
             let byte_range = (tag.byte_offset + tag.delimiter.as_str().len())..source.len();
             let s = &source[byte_range.clone()];
-            let (last_lineno, last_linecontent) = s
-                .lines()
-                .enumerate()
-                .last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
+            let (last_lineno, last_linecontent) =
+                s.lines().enumerate().last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
             Tagged::Keep(Content {
                 s,
                 start: tag.lico,
@@ -182,7 +180,7 @@ where
                 start_del: tag.delimiter,
                 end_del: Marker::EndOfDocument,
             })
-        }));
+        });
 
     // make sure the first part is kept if it doesn't start with a dollar sign
     let mut iter = iter.peekable();

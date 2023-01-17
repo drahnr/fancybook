@@ -4,10 +4,13 @@ use fs::OpenOptions;
 use fs_err as fs;
 use mdbook::book::BookItem;
 use mdbook::renderer::RenderContext;
+use mdbook_boilerplate::{check_version_compat, setup_log_and_backtrace};
 use pulldown_cmark::{CowStr, Event, LinkType, Options, Parser, Tag};
 use std::io::{self, BufReader, Write};
 use std::path::Path;
 use std::path::PathBuf;
+
+use mdbook_boilerplate::*;
 
 #[cfg(test)]
 mod tests;
@@ -15,7 +18,7 @@ mod tests;
 // config definition.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
-pub struct LatexConfig {
+pub struct TectonicConfig {
     // Chapters that will not be exported.
     pub ignores: Vec<String>,
 
@@ -31,6 +34,9 @@ pub struct LatexConfig {
     // Use user's LaTeX template file instead of default (template.tex).
     pub custom_template: Option<String>,
 
+    // List of lookup directories to search for assets
+    pub assets: Vec<PathBuf>,
+
     // Date to be used in the LaTeX \date{} macro
     #[serde(default = "today")]
     pub date: String,
@@ -40,13 +46,14 @@ fn today() -> String {
     r#"\today"#.to_owned()
 }
 
-impl Default for LatexConfig {
+impl Default for TectonicConfig {
     fn default() -> Self {
         Self {
             ignores: Default::default(),
             latex: true,
             pdf: true,
             markdown: true,
+            assets: Vec::new(),
             custom_template: None,
             date: today(),
         }
@@ -62,61 +69,22 @@ enum Error {
 }
 
 fn main() -> color_eyre::Result<()> {
-    color_eyre::install()?;
-
-    let prefix = "🌋";
     let name = "tectonic";
-    use env_logger::Builder;
-    use log::LevelFilter;
-    let mut builder = Builder::from_default_env();
-    builder.format(move |formatter, record| {
-        let time = formatter.timestamp();
-        let lvl = formatter.default_styled_level(record.level());
-        let args = record.args();
-
-        let style = formatter
-            .style()
-            .set_color(env_logger::fmt::Color::Black)
-            .set_intense(true)
-            .clone();
-        let open = style.value("[");
-        let close = style.value("]");
-        writeln!(
-            formatter,
-            "{open}{time} {lvl:5} {prefix} {name}{close} {args}"
-        )
-    });
-    builder.filter(None, LevelFilter::Debug).init();
+    let prefix = "🌋";
+    setup_log_and_backtrace(name, prefix)?;
 
     let stdin = BufReader::new(io::stdin());
 
     // Get markdown source from the mdbook command via stdin
     let ctx = RenderContext::from_json(stdin).map_err(Error::MdBook)?;
 
-    let compiled_against = semver::VersionReq::parse(mdbook::MDBOOK_VERSION)?;
-    let running_against = semver::Version::parse(ctx.version.as_str())?;
-    if !compiled_against.matches(&running_against) {
-        // We should probably use the `semver` crate to check compatibility
-        // here...
-        log::warn!(
-            "Warning: The {} output was built against version {} of mdbook, \
-             but we're being called from version {}",
-            "tectonic",
-            mdbook::MDBOOK_VERSION,
-            ctx.version
-        );
-    }
-
-    log::debug!(
-        "mdbook-tectonic called from {}!",
-        std::env::current_dir().unwrap().display()
-    );
+    check_version_compat("tectonic", ctx.version.as_str(), mdbook::MDBOOK_VERSION)?;
 
     // Get configuration options from book.toml.
-    let cfg: LatexConfig = ctx
+    let cfg: TectonicConfig = ctx
         .config
-        .get_deserialized_opt("output.latex")
-        .expect("Error reading \"output.latex\" configuration")
+        .get_deserialized_opt("output.tectonic")
+        .expect("Error reading \"output.tectonic\" configuration")
         .unwrap_or_default();
 
     // Read book's config values (title, authors).
@@ -129,6 +97,7 @@ fn main() -> color_eyre::Result<()> {
         .unwrap_or("<Unknown Title>");
     let authors = ctx.config.book.authors.join(" \\and ");
     let date = cfg.date.clone();
+    let asset_paths = &cfg.assets[..];
 
     // Copy template data into memory.
     let mut template = if let Some(custom_template) = cfg.custom_template {
@@ -159,6 +128,7 @@ fn main() -> color_eyre::Result<()> {
             content.push_str(&traverse_markdown(
                 &ch.content,
                 ch.path.as_ref().unwrap().parent().unwrap(),
+                asset_paths,
                 &ctx,
             )?);
         }
@@ -200,7 +170,11 @@ fn main() -> color_eyre::Result<()> {
             // FIXME launch tectonic process
             let tectonic = which::which("tectonic")?;
 
-            let args = ["--outfmt=pdf".to_owned(), format!("-o={}", cwd.display()), "-".to_owned()];
+            let args = [
+                "--outfmt=pdf".to_owned(),
+                format!("-o={}", cwd.display()),
+                "-".to_owned(),
+            ];
             log::debug!("{} {}", tectonic.display(), args.join(" "));
             let mut child = std::process::Command::new(tectonic)
                 .args(&args)
@@ -232,7 +206,7 @@ fn output_markdown<P: AsRef<Path>>(
     filename: &str,
     data: &str,
     destination: P,
-) -> Result<(), io::Error> {
+) -> Result<()> {
     // the title might contain a lot of stuff, so limit it to sane chars
     let re = regex::Regex::new("[^A-Za-z0-9_-]").expect("Parses just fine. qed");
     let filename = str::replace(filename, move |c: char| re.is_match(&c.to_string()), "");
@@ -260,40 +234,44 @@ fn output_markdown<P: AsRef<Path>>(
 fn traverse_markdown(
     content: &str,
     chapter_path: &Path,
+    asset_paths: &[PathBuf],
     context: &RenderContext,
-) -> std::io::Result<String> {
+) -> Result<String> {
     let parser = Parser::new_ext(content, Options::all());
     let parser = parser
         .map(|event| {
             Ok(match event {
                 Event::Start(Tag::Image(link_type, path, title)) => {
                     //Event::Start(Tag::Image(link_type, imagepathcowstr, title))
-                    Event::Start(parse_image_tag(
+                    let tag = parse_image_tag(
                         link_type,
                         path,
                         title,
                         chapter_path,
+                        asset_paths,
                         context,
-                    )?)
+                    )?;
+                    Event::Start(tag)
                 }
                 Event::End(Tag::Image(link_type, path, title)) => {
                     //Event::Start(Tag::Image(link_type, imagepathcowstr, title))
-                    Event::End(parse_image_tag(
+                    let tag = parse_image_tag(
                         link_type,
                         path,
                         title,
                         chapter_path,
+                        asset_paths,
                         context,
-                    )?)
+                    )?;
+                    Event::End(tag)
                 }
                 _ => event,
             })
         })
-        .collect::<std::io::Result<Vec<Event>>>()?;
+        .collect::<Result<Vec<Event>>>()?;
     let mut new_content = String::new();
 
-    pulldown_cmark_to_cmark::cmark(parser.into_iter(), &mut new_content)
-        .expect("Event mod is minimal, must work. qed");
+    pulldown_cmark_to_cmark::cmark(parser.into_iter(), &mut new_content)?;
     Ok(new_content)
 }
 
@@ -304,23 +282,28 @@ fn parse_image_tag<'a>(
     path: CowStr<'a>,
     title: CowStr<'a>,
     _chapter_path: &'a Path,
+    asset_paths: &[PathBuf],
     context: &'a RenderContext,
-) -> std::io::Result<Tag<'a>> {
+) -> Result<Tag<'a>> {
     // cleaning and converting the path found.
-    let imagefn = dbg!(path.as_ref().strip_prefix("./").unwrap_or(path.as_ref()));
-    // let source = &context.config.book.root.join(imagefn);
-    // FIXME TODO allow to specify the source dir
-    let sourceimage = &context.root.join("assets").join("fishextract").join(imagefn);
-    let targetimage = &context.destination.join(imagefn);
+    let imagefn = path.as_ref().strip_prefix("./").unwrap_or(path.as_ref());
 
-    if sourceimage != targetimage {
-        log::debug!(
-            "Copying image from image tag: {} -> {}",
-            sourceimage.display(),
-            targetimage.display()
-        );
-        fs::create_dir_all(targetimage.parent().unwrap())?;
-        fs::copy(&sourceimage, &targetimage)?;
+    let targetimage = &context.destination.join(imagefn);
+    for asset_path in asset_paths {
+        let sourceimage = &context.root.join(asset_path).join(imagefn);
+        if sourceimage.exists() {
+            if sourceimage != targetimage {
+                log::debug!(
+                    "Copying image {} from image tag: {} -> {}",
+                    imagefn,
+                    sourceimage.display(),
+                    targetimage.display()
+                );
+                fs::create_dir_all(targetimage.parent().unwrap())?;
+                fs::copy(&sourceimage, &targetimage)?;
+            }
+            break;
+        }
     }
     // create the new image
     Ok(Tag::Image(link_type, imagefn.to_owned().into(), title))

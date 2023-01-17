@@ -939,13 +939,13 @@ dependencies = [
 name = "mdbook-tectonic"
 version = "0.3.0-beta.4"
 dependencies = [
- "assert_matches",
  "cmark2tex",
  "color-eyre",
  "env_logger",
  "fs-err",
  "log",
  "mdbook",
+ "mdbook-boilerplate",
  "pulldown-cmark",
  "pulldown-cmark-to-cmark",
  "regex",

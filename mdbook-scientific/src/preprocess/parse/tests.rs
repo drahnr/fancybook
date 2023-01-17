@@ -262,16 +262,16 @@ $$")
     );
 
     test_sequester!(oneblockje_w_suffix:
-        r#"$$
+    r#"$$
 1
 $$
 Byeby’ there was a block"# =>
-        (R, 0..7, "$$
+    (R, 0..7, "$$
 1
 $$"),
-        (K, 7..34, r#"
-Byeby’ there was a block"#)
-        );
+    (K, 7..34, r#"
+    Byeby’ there was a block"#)
+    );
 
     test_sequester!(nope:
     r####"# abc

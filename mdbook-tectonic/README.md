@@ -123,30 +123,15 @@ cargo install mdbook-tectonic
 Add the following `toml` configuration to `book.toml`.
 
 ```toml
-[output.latex]
+[output.tectonic]
 latex    = true  # default = true
 pdf      = true  # default = true
 markdown = true  # default = true
+# asset path relative to the root dir
+assets = ["assets/a", "assets/b"]
 ```
 
 The next `mdbook build` command will produce LaTeX and PDF files (and the markdown file of your mdbook) in the `book/latex/` directory.
-
-## Uninstallation
-
-To uninstall `mdbook-tectonic`, enter the following in a shell:
-
-```sh
-cargo uninstall mdbook-tectonic
-```
-
-Then delete the `[output.latex]` configuration in `book.toml`:
-
-```diff
-- [output.latex]
-- latex    = true
-- pdf      = true
-- markdown = true
-```
 
 ## Primary Dependencies
 
@@ -154,23 +139,15 @@ Then delete the `[output.latex]` configuration in `book.toml`:
 
 - [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark): Parses the markdown source AST.
 - [Tectonic](https://tectonic-typesetting.github.io/en-US/): Creates the final PDF file from the transformed LaTeX code.
-- [md2tex](https://github.com/lbeckman314/md2tex): Transforms the markdown source to LaTeX. This is a fork of [md2pdf](https://gitea.tforgione.fr/tforgione/md2pdf/), a great utility for converting markdown code to LaTeX and PDF's.  I hope to eventually propose some of the updates back upstream. `md2tex` and `mdbook-tectonic` are developed in tandem, but are meant to be independent programs. Therefore, if one wishes to use an alternative markdown-to-tex conveter, they should be able to plug it in to `mdbook-tectonic` with ease.
+- [md2tex](https://github.com/lbeckman314/md2tex): Transforms the markdown source to LaTeX. This is a fork of [cmark2pdf](https://gitea.tforgione.fr/tforgione/md2pdf/), a great utility for converting markdown code to LaTeX and PDF's.  I hope to eventually propose some of the updates back upstream. `md2tex` and `mdbook-tectonic` are developed in tandem, but are meant to be independent programs. Therefore, if one wishes to use an alternative markdown-to-tex conveter, they should be able to plug it in to `mdbook-tectonic` with ease.
 
-## How's it Work?
+## How does it work?
 
 Broadly speaking, there are three steps, or "transformations", from `mdbook` source to PDF output:
 
 1) **mdbook source to JSON-organized markdown** (`mdbook-tectonic`): retreives the JSON formatted data from `mdbook`. Calls `md2tex` and `tectonic` for LaTeX and PDF generation, respectively.
 2) **markdown to LaTeX** (`md2tex`): converts markdown input to LaTeX output.
 3) **LaTeX to PDF** (`tectonic`): creates PDF document from LaTeX input.
-
-## Contributing
-
-Pull requests, forks, and plain old copy-pasting are actively encouraged! Also, I am relatively new to Rust (and programming in general) so recommendations or advice in general is always appreciated.
-
-### I found a problem. Should I create an issue with `mdbook-tectonic` or `md2tex`?
-
-Either one. `mdbook-tectonic` can be thought of as a frontend for the LaTeX generation done by `md2tex`. So if there is a LaTeX error, you may favor creating an issue with `md2tex`. Otherwise, creating an issue with `mdbook-tectonic` is a good bet. But any issue is a good issue, so don't worry if it's in the "right" repository or not, I should be able to see it regardless!
 
 ## Are We Stable Yet?
 

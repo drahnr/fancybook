@@ -171,7 +171,11 @@ impl Scientific {
                         .to_owned();
                     // let from = fragment_path.join(&fragment);
                     let to = asset_path.join(&fragment);
-                    log::info!("Copying fragment to assets dir: {} -> {}", from.display(), to.display());
+                    log::info!(
+                        "Copying fragment to assets dir: {} -> {}",
+                        from.display(),
+                        to.display()
+                    );
                     fs::copy(from, to)?;
                 }
             } else {

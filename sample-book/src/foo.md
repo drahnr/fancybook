@@ -27,7 +27,7 @@ fn sample_rust_code<T: Y>() -> Result<T> {
 
 and finally some math:
 
-$$oink
+$$equ,oink
 y = \sum somath
 $$
 

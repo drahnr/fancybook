@@ -71,6 +71,22 @@ impl FromStr for SupportedRenderer {
     }
 }
 
+impl SupportedRenderer {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Html => "html",
+            Self::Tectonic => "tectonic",
+            Self::Latex => "latex",
+            Self::Markdown => "markdown",
+        }
+    }
+}
+impl fmt::Display for SupportedRenderer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about)]
 pub struct Args {
@@ -84,19 +100,34 @@ pub enum Sub {
     Supports { renderer: String },
 }
 
-pub fn launch<Pre: Preprocessor + 'static>(
-    preprocessor: Pre,
-    args: impl Into<Args>,
-    prefix: &'static str,
-) -> color_eyre::eyre::Result<()> {
+use std::fmt;
+impl fmt::Display for Sub {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Sub::Supports { renderer } => {
+                write!(f, "{}", renderer.as_str())
+            }
+        }
+    }
+}
+
+/// Log the invocation by
+pub fn log_call(name: &'_ str, renderer: SupportedRenderer) {
+    let cwd = std::env::current_dir().unwrap();
+    let cwd = cwd.display();
+    log::info!("{name} for renderer {renderer} called from {cwd}!");
+}
+
+pub fn setup_log_and_backtrace(name: &'_ str, prefix: &'static str) -> Result<()> {
     color_eyre::install()?;
 
-    let name = preprocessor.name().to_owned();
+    let owned_name = name.to_owned();
+
     use env_logger::Builder;
     use log::LevelFilter;
     let mut builder = Builder::from_default_env();
     builder.format(move |formatter, record| {
-        let name = name.as_str();
+        let name = owned_name.as_str();
         let time = formatter.timestamp();
         let lvl = formatter.default_styled_level(record.level());
         let args = record.args();
@@ -115,11 +146,15 @@ pub fn launch<Pre: Preprocessor + 'static>(
     });
     builder.filter(None, LevelFilter::Debug).init();
 
-    log::debug!(
-        "{} called from {}!",
-        preprocessor.name(),
-        std::env::current_dir().unwrap().display()
-    );
+    Ok(())
+}
+
+pub fn launch<Pre: Preprocessor + 'static>(
+    preprocessor: Pre,
+    args: impl Into<Args>,
+    prefix: &'static str,
+) -> color_eyre::eyre::Result<()> {
+    setup_log_and_backtrace(preprocessor.name(), prefix)?;
 
     let args = args.into();
     if let Some(Sub::Supports { ref renderer }) = args.supports {
@@ -130,20 +165,31 @@ pub fn launch<Pre: Preprocessor + 'static>(
     Ok(())
 }
 
-fn handle_preprocessing(pre: &dyn Preprocessor) -> Result<()> {
-    let (ctx, book) = CmdPreprocessor::parse_input(io::stdin()).map_err(Error::MdBook)?;
-
-    let compiled_against = semver::VersionReq::parse(mdbook::MDBOOK_VERSION)?;
-    let running_against = semver::Version::parse(ctx.mdbook_version.as_str())?;
+pub fn check_version_compat(name: &'_ str, compat: &'_ str, plugin: &'_ str) -> Result<()> {
+    let compiled_against = semver::VersionReq::parse(plugin)?;
+    let running_against = semver::Version::parse(compat)?;
     if !compiled_against.matches(&running_against) {
         log::warn!(
             "The {} plugin was built against version {} of mdbook, \
             but we're being called from version {}",
-            pre.name(),
-            mdbook::MDBOOK_VERSION,
-            ctx.mdbook_version
+            name,
+            plugin,
+            compat
         );
     }
+    Ok(())
+}
+
+fn handle_preprocessing(pre: &dyn Preprocessor) -> Result<()> {
+    let (ctx, book) = CmdPreprocessor::parse_input(io::stdin()).map_err(Error::MdBook)?;
+
+    check_version_compat(
+        pre.name(),
+        ctx.mdbook_version.as_str(),
+        mdbook::MDBOOK_VERSION,
+    )?;
+
+    log_call(pre.name(), SupportedRenderer::from_str(&ctx.renderer)?);
 
     let processed_book = pre.run(&ctx, book).map_err(Error::MdBook)?;
 

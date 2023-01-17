@@ -56,6 +56,9 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
+///
+/// `asset_path` is the prefix path to be used for paths, could be empty, relative of absolute. Relative to the cwd.
+/// Must remain a relative path!
 pub fn parser_to_tex<'a, P>(parser: P, asset_path: &Path) -> Result<String>
 where
     P: 'a + Iterator<Item = Event<'a>>,
@@ -74,7 +77,7 @@ where
     let mut buffer = String::new();
 
     for event in parser {
-        log::debug!("Event: {:?}", event);
+        log::trace!("Event: {:?}", event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
@@ -272,9 +275,9 @@ where
 
                 // if image path ends with ".svg", run it through
                 // svg2png to convert to png file.
-                if let Some("svg") = get_extension(dbg!(&path)) {
+                if let Some("svg") = get_extension(&path) {
                     let path = PathBuf::from(path.as_ref());
-                    let path_png = path.with_extension("png");
+                    let path_png = asset_path.join(&path).with_extension("png");
                     log::debug!(
                         "Replacing svg with png: {} -> {} where {}",
                         path.display(),
@@ -287,7 +290,7 @@ where
 
                     let img = svg2png(&path)?;
 
-                    fs::write(dbg!(&path_png), img)?;
+                    fs::write(&path_png, img)?;
                     path_str = path_png
                         .to_str()
                         .expect("Works, we just created it from a valid str. qed")
@@ -360,8 +363,8 @@ where
 
                 buffer.push_str(&t.clone().into_string());
 
-                debug!("current_type: {:?}", current.event_type);
-                debug!("equation_mode: {:?}", equation_mode);
+                log::trace!("current_type: {:?}", current.event_type);
+                log::trace!("equation_mode: {:?}", equation_mode);
                 match current.event_type {
                     EventType::Strong
                     | EventType::Emphasis
@@ -457,7 +460,7 @@ pub fn html2tex(html: String, current: &CurrentType) -> Result<String> {
             let img = svg2png(&path)?;
 
             let path = PathBuf::from(orig.replace("../../", "")).with_extension("png");
-            debug!("path!: {}", path.display());
+            log::debug!("path!: {}", path.display());
 
             // create output directories.
             let _ = fs::create_dir_all(path.parent().unwrap());
