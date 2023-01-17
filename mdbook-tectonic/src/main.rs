@@ -68,7 +68,7 @@ enum Error {
     Regex(#[from] regex::Error),
 }
 
-fn main() -> color_eyre::Result<()> {
+fn main() -> Result<()> {
     let name = "tectonic";
     let prefix = "🌋";
     setup_log_and_backtrace(name, prefix)?;
@@ -265,6 +265,10 @@ fn traverse_markdown(
                     )?;
                     Event::End(tag)
                 }
+                // FIXME TODO
+                // Event::Math(display_math, math) => {
+                //     Event::Math(tag)
+                // }
                 _ => event,
             })
         })

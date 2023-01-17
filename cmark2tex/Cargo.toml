@@ -15,7 +15,7 @@ keywords = ["tex", "markdown", "cmark", "commonmark"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pulldown-cmark = "0.9"
+pulldown-cmark = { workspace = true }
 clap = { version = "4", features = ["derive", "env"] }
 walkdir = "2.2.9"
 Inflector = "0.11.4"

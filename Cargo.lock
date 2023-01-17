@@ -250,7 +250,7 @@ dependencies = [
  "html2md",
  "log",
  "png",
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (git+https://github.com/drahnr/pulldown-cmark.git?branch=math)",
  "regex",
  "resvg",
  "thiserror",
@@ -858,7 +858,7 @@ dependencies = [
  "memchr",
  "once_cell",
  "opener",
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "serde",
  "serde_json",
@@ -899,7 +899,7 @@ dependencies = [
  "log",
  "mdbook",
  "mdbook-boilerplate",
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (git+https://github.com/drahnr/pulldown-cmark.git?branch=math)",
  "pulldown-cmark-to-cmark",
  "semver",
  "serde",
@@ -924,7 +924,7 @@ dependencies = [
  "mdbook",
  "mdbook-boilerplate",
  "nom-bibtex",
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (git+https://github.com/drahnr/pulldown-cmark.git?branch=math)",
  "pulldown-cmark-to-cmark",
  "regex",
  "semver",
@@ -939,14 +939,14 @@ dependencies = [
 name = "mdbook-tectonic"
 version = "0.3.0-beta.4"
 dependencies = [
+ "assert_matches",
  "cmark2tex",
- "color-eyre",
  "env_logger",
  "fs-err",
  "log",
  "mdbook",
  "mdbook-boilerplate",
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (git+https://github.com/drahnr/pulldown-cmark.git?branch=math)",
  "pulldown-cmark-to-cmark",
  "regex",
  "semver",
@@ -1306,6 +1306,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d9cc634bc78768157b5cbfe988ffcd1dcba95cd2b2f03a88316c08c6d00ed63"
 dependencies = [
  "bitflags",
+ "memchr",
+ "unicase",
+]
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.9.2"
+source = "git+https://github.com/drahnr/pulldown-cmark.git?branch=math#cbcdf26d2a05a2bf05cf478325a95154882d80c0"
+dependencies = [
+ "bitflags",
  "getopts",
  "memchr",
  "unicase",
@@ -1314,10 +1324,9 @@ dependencies = [
 [[package]]
 name = "pulldown-cmark-to-cmark"
 version = "10.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0194e6e1966c23cc5fd988714f85b18d548d773e81965413555d96569931833d"
+source = "git+https://github.com/drahnr/pulldown-cmark-to-cmark.git?branch=math#18d701094f7c4d6d5a48b37f710cb05b9204f4c9"
 dependencies = [
- "pulldown-cmark",
+ "pulldown-cmark 0.9.2 (git+https://github.com/drahnr/pulldown-cmark.git?branch=math)",
 ]
 
 [[package]]

@@ -3,3 +3,8 @@ members = ["mdbook-tectonic", "mdbook-fishextract", "mdbook-scientific", "cmark2
 
 [workspace.package]
 version = "0.10.0"
+
+
+[workspace.dependencies]
+pulldown-cmark = { git = "https://github.com/drahnr/pulldown-cmark.git", branch = "math" }
+pulldown-cmark-to-cmark =  { git = "https://github.com/drahnr/pulldown-cmark-to-cmark.git", branch = "math" }

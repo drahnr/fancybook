@@ -1,6 +1,10 @@
 pub use clap::Parser;
+pub use color_eyre;
+pub use color_eyre::eyre;
+pub use color_eyre::eyre::bail;
 pub use color_eyre::eyre::Report;
 pub use color_eyre::eyre::Result;
+pub use fs_err as fs;
 pub use mdbook::preprocess::CmdPreprocessor;
 pub use mdbook::preprocess::Preprocessor;
 use sha2::Digest;

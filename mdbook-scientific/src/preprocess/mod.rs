@@ -5,13 +5,11 @@ use std::path::{Path, PathBuf};
 
 use crate::errors::{Error, Result};
 use crate::fragments;
+use crate::parse::*;
 use crate::types::*;
 
 mod format;
 pub use self::format::*;
-
-pub mod parse;
-pub use self::parse::*;
 
 pub fn replace_blocks(
     fragment_path: impl AsRef<Path>,

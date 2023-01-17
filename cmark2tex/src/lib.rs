@@ -7,7 +7,7 @@ extern crate env_logger;
 
 use fs_err as fs;
 use inflector::cases::kebabcase::to_kebab_case;
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, MathDisplay, Options, Parser, Tag};
 use regex::Regex;
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg;
@@ -49,6 +49,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH);
 
     let parser = Parser::new_ext(cmark.as_ref(), options);
 
@@ -66,14 +67,13 @@ where
     //env_logger::init();
     let mut output = String::new();
 
-    let mut header_value = String::new();
+    let header_value = "";
 
     let mut current: CurrentType = CurrentType {
         event_type: EventType::Text,
     };
     let mut cells = 0;
 
-    let mut equation_mode = false;
     let mut buffer = String::new();
 
     for event in parser {
@@ -332,6 +332,29 @@ where
                 current.event_type = EventType::Text;
             }
 
+            Event::Math(math_display, math) => {
+                output.push_str(
+                    match math_display {
+                        MathDisplay::Block => {
+                            // FIXME extract equation references
+                            format!(
+                                r###"
+\begin{{align}}
+%\label{{}}
+{math}
+\end{{align}}
+"###
+                            )
+                        }
+                        MathDisplay::Inline => {
+                            // FIXME TODO handle all the referencing and shiat
+                            format!(r###"${math}$"###)
+                        }
+                    }
+                    .as_str(),
+                );
+            }
+
             Event::Code(t) => {
                 output.push_str("\\lstinline|");
                 match current.event_type {
@@ -352,67 +375,7 @@ where
             }
 
             Event::Text(t) => {
-                // if "\(" or "\[" are encountered, then begin equation
-                // and don't replace any characters.
-                let delim_start = vec![r"\(", r"\[", "$$"];
-                let delim_end = vec![r"\)", r"\]", "$$"];
-
-                if buffer.len() > 100 {
-                    buffer.clear();
-                }
-
-                buffer.push_str(&t.clone().into_string());
-
-                log::trace!("current_type: {:?}", current.event_type);
-                log::trace!("equation_mode: {:?}", equation_mode);
-                match current.event_type {
-                    EventType::Strong
-                    | EventType::Emphasis
-                    | EventType::Text
-                    | EventType::Header
-                    | EventType::Table => {
-                        // TODO more elegant way to do ordered `replace`s (structs?).
-                        if delim_start
-                            .into_iter()
-                            .any(|element| buffer.contains(element))
-                        {
-                            let popped = output.pop().unwrap();
-                            if popped != '\\' {
-                                output.push(popped);
-                            }
-                            output.push_str(&*t);
-                            equation_mode = true;
-                        } else if delim_end
-                            .into_iter()
-                            .any(|element| buffer.contains(element))
-                            || equation_mode == true
-                        {
-                            let popped = output.pop().unwrap();
-                            if popped != '\\' {
-                                output.push(popped);
-                            }
-                            output.push_str(&*t);
-                            equation_mode = false;
-                        } else {
-                            output.push_str(
-                                &*t
-                                    // FIXME check if this is part of some math / equ / fig env
-                                    // .replace(r"\", r"\\")
-                                    .replace("&", r"\&")
-                                    // formulae contain plenty of backslashes
-                                    // .replace(r"\s", r"\textbackslash{}s")
-                                    // .replace(r"\w", r"\textbackslash{}w")
-                                    // .replace("_", r"\_")
-                                    .replace(r"\<", "<")
-                                    .replace(r"%", r"\%")
-                                    .replace(r"—", "---")
-                                    .replace("#", r"\#"),
-                            );
-                        }
-                        header_value = t.into_string();
-                    }
-                    _ => output.push_str(&*t),
-                }
+                buffer.push_str(&t);
             }
 
             Event::SoftBreak => {

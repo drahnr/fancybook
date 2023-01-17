@@ -1,6 +1,9 @@
 mod fragments;
 mod preprocess;
 
+pub mod parse;
+pub use self::parse::*;
+
 use crate::errors::Error;
 use fs_err as fs;
 use mdbook_boilerplate::{asset_path, fragment_path};

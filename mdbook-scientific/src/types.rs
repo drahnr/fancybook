@@ -1,5 +1,5 @@
 use crate::errors;
-pub(crate) use crate::preprocess::parse::types::*;
+pub(crate) use crate::parse::types::*;
 use std::path::PathBuf;
 use std::str::FromStr;
 

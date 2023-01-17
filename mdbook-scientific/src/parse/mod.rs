@@ -1,4 +1,4 @@
-use super::*;
+use itertools::Itertools;
 
 pub(crate) mod types;
 pub use self::types::*;

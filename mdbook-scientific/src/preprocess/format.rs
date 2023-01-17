@@ -52,8 +52,12 @@ pub fn format_equation_block<'a>(
             )
         }
         Latex | Tectonic => {
-            let file = replacement.svg_asset_file.as_path().display();
-            format!(r#"![]({file})"#)
+            format!(
+                r#"$$
+{}
+$$"#,
+                replacement.inner_str_or_intermediate()
+            )
         }
     }
 }

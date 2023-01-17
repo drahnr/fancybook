@@ -15,9 +15,8 @@ rust-version = "1.62.0"
 
 [dependencies]
 mdbook = { version = "0.4", default-features = false }
-color-eyre = { version = "0.6" }
-pulldown-cmark = "0.9"
-pulldown-cmark-to-cmark = "10"
+pulldown-cmark = { workspace = true }
+pulldown-cmark-to-cmark = { workspace = true }
 serde = "1.0.104"
 serde_derive = "1.0.104"
 cmark2tex = { version = "0.4.0-beta.1", path = "../cmark2tex" }
