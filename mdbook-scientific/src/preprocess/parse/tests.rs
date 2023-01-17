@@ -28,13 +28,13 @@ mod dollarsplit {
                 // assert!(lico > previous_lico);
                 dbg!((&idx, &ist, &soll));
                 if idx & 0x1 == 0 {
-                    assert_matches!(ist.which, Dollar::Start(s) => {
+                    assert_matches!(ist.delimiter, Marker::Start(s) => {
                         assert_eq!(ist.lico, soll.lico);
                         assert_eq!(s, soll.content);
                         // assert_eq!(LIT.match_indices(s).filter(|(offset, x)| offset == soll.byte_offset).count(), 1);
                     })
                 } else {
-                    assert_matches!(ist.which, Dollar::End(s) => {
+                    assert_matches!(ist.delimiter, Marker::End(s) => {
                         assert_eq!(ist.lico, soll.lico);
                         assert_eq!(s, soll.content);
                         // assert_eq!(LIT.match_indices(s).filter(|(offset, x)| offset == soll.byte_offset).count(), 1);
@@ -87,6 +87,8 @@ $ foo $ $$ $?
 "###
     );
 
+    test_case!(missing_trailing_inline: r###"bar $ foo"###);
+
     test_case!(
         iter_over_empty_intra_line_sequences: "fo’ $$_$$ bar" => (0,4,"$"),(0,5,"$"),(0,7,"$"),(0,8,"$")
     );
@@ -131,8 +133,8 @@ mod dollarless {
                     start: LiCo { lineno: 1, column: 1, },
                     end: LiCo { lineno: last_lineno + 1, column: last_line_char_offset, },
                     byte_range: 0..INPUT.len(),
-                    start_del: Dollar::Start($delimiter),
-                    end_del: Dollar::End($delimiter),
+                    start_del: Marker::Start($delimiter),
+                    end_del: Marker::End($delimiter),
                 };
                 let dollarless = content.trimmed();
                 assert!(dbg!(&dollarless.byte_range).len() < dbg!(&content.byte_range).len());

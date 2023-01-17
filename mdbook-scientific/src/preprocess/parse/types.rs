@@ -1,12 +1,13 @@
 /// A dollar sign or maybe two, or three.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dollar<'a> {
+pub enum Marker<'a> {
     Start(&'a str),
     End(&'a str),
-    Empty,
+    EndOfDocument,
+    StartOfDocument,
 }
 
-impl<'a> Dollar<'a> {
+impl<'a> Marker<'a> {
     pub fn is_block(&self) -> bool {
         self.as_ref().starts_with("$$")
     }
@@ -15,12 +16,12 @@ impl<'a> Dollar<'a> {
         match self {
             Self::Start(s) => s,
             Self::End(s) => s,
-            Self::Empty => "",
+            Self::EndOfDocument | Self::StartOfDocument => "",
         }
     }
 }
 
-impl<'a> AsRef<str> for Dollar<'a> {
+impl<'a> AsRef<str> for Marker<'a> {
     fn as_ref(&self) -> &'a str {
         self.as_str()
     }
@@ -46,8 +47,8 @@ pub struct Content<'a> {
     /// Byte range that can be used with the original to extract `s`
     pub byte_range: std::ops::Range<usize>,
 
-    pub start_del: Dollar<'a>,
-    pub end_del: Dollar<'a>,
+    pub start_del: Marker<'a>,
+    pub end_del: Marker<'a>,
 }
 
 impl<'a> Content<'a> {
@@ -170,6 +171,7 @@ where
                     byte_range: start.1..end.1,
                 }
             }
+            // incorrect, StartOfDocument and EndOfDocument are "" as well
             other => unreachable!(
                 r#"Only $ or $$ are valid delimiters and only those make it up until here, but found "{other}". qed"#
             ),

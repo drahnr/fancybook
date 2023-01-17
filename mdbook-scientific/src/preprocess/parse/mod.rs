@@ -12,11 +12,13 @@ pub struct SplitTagPosition<'a> {
     lico: LiCo,
     /// Offset in bytes from the beginning of the string
     byte_offset: usize,
-    /// start or end
-    which: Dollar<'a>,
+    /// start or end, or start/end of document
+    delimiter: Marker<'a>,
 }
 
-pub fn dollar_split_tags_iter<'a>(source: &'a str) -> impl Iterator<Item = SplitTagPosition<'a>> {
+pub fn dollar_split_tags_iter<'a>(
+    source: &'a str,
+) -> impl Iterator<Item = SplitTagPosition<'a>> + Clone {
     let mut is_code_block = false;
     let mut is_pre_block = false;
     let mut is_dollar_block = false;
@@ -62,10 +64,10 @@ pub fn dollar_split_tags_iter<'a>(source: &'a str) -> impl Iterator<Item = Split
                     is_dollar_block = !is_dollar_block;
                     return Some(
                         vec![SplitTagPosition {
-                            which: if is_dollar_block {
-                                Dollar::Start(&line_content[..("$$".len())])
+                            delimiter: if is_dollar_block {
+                                Marker::Start(&line_content[..("$$".len())])
                             } else {
-                                Dollar::End(&line_content[..("$$".len())])
+                                Marker::End(&line_content[..("$$".len())])
                             },
                             lico: current,
                             byte_offset: byte_offset + 0,
@@ -87,10 +89,10 @@ pub fn dollar_split_tags_iter<'a>(source: &'a str) -> impl Iterator<Item = Split
                                     is_between_dollar_content = !is_between_dollar_content;
                                     current.column = il_char_offset;
                                     let dollar = SplitTagPosition {
-                                        which: if is_between_dollar_content {
-                                            Dollar::Start(&line_content[il_byte_offset..][..1])
+                                        delimiter: if is_between_dollar_content {
+                                            Marker::Start(&line_content[il_byte_offset..][..1])
                                         } else {
-                                            Dollar::End(&line_content[il_byte_offset..][..1])
+                                            Marker::End(&line_content[il_byte_offset..][..1])
                                         },
                                         lico: current,
                                         byte_offset: byte_offset + il_byte_offset,
@@ -111,10 +113,10 @@ pub fn dollar_split_tags_iter<'a>(source: &'a str) -> impl Iterator<Item = Split
                     tagswpos.push(SplitTagPosition {
                         lico: LiCo {
                             lineno,
-                            column: current_char_cnt + 1,
+                            column: current_char_cnt + 1, // inclusive, but it doesn't exist, so we need one _after_
                         },
                         byte_offset: line_content.len(),
-                        which: Dollar::End(""),
+                        delimiter: Marker::End(""),
                     })
                 }
                 Some(tagswpos.into_iter())
@@ -147,10 +149,42 @@ impl<'a> AsRef<Content<'a>> for Tagged<'a> {
     }
 }
 
-pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
+// TODO FIXME refactor
+// Should only inject tags, rather than keep content
+// and derive the rest from that
+pub(crate) fn iter_over_dollar_encompassed_blocks<'a, I>(
     source: &'a str,
-    iter: impl Iterator<Item = SplitTagPosition<'a>>,
-) -> impl Iterator<Item = Tagged<'a>> {
+    iter: I,
+) -> impl Iterator<Item = Tagged<'a>>
+where
+    I: Iterator<Item = SplitTagPosition<'a>> + Clone,
+{
+    // insert a trailing item if the document does not end with i.e. a `$` sign
+    let last = dbg!(iter
+        .clone()
+        .last()
+        .filter(|tag| tag.byte_offset < source.len())
+        .map(|tag| {
+            let byte_range = 0..(tag.byte_offset);
+            let s = &source[byte_range.clone()];
+            let (last_lineno, last_linecontent) = s
+                .lines()
+                .enumerate()
+                .last()
+                .expect("There always is one line. qed");
+            Tagged::Keep(Content {
+                s,
+                start: tag.lico,
+                end: LiCo {
+                    lineno: last_lineno + 1,
+                    column: last_linecontent.chars().count(),
+                },
+                byte_range,
+                start_del: tag.delimiter,
+                end_del: Marker::EndOfDocument,
+            })
+        }));
+
     // make sure the first part is kept if it doesn't start with a dollar sign
     let mut iter = iter.peekable();
     let pre = match iter.peek() {
@@ -158,7 +192,7 @@ pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
             let byte_range = 0..(nxt.byte_offset);
             let s = &source[byte_range.clone()];
             Some(Tagged::Keep(Content {
-                // content without the $ delimiters FIXME
+                // content including the $ delimiters
                 s,
                 start: LiCo {
                     lineno: 1,
@@ -166,11 +200,12 @@ pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
                 },
                 end: nxt.lico,
                 byte_range,
-                start_del: Dollar::Empty,
-                end_del: nxt.which,
+                start_del: Marker::StartOfDocument,
+                end_del: nxt.delimiter,
             }))
         }
-        _ => None,
+        Some(_n) => None, // first tag is the very beginning
+        None => None,     // empty iter shall stay empty
     };
     let iter = iter.tuple_windows().enumerate().map(
         move |(
@@ -178,12 +213,12 @@ pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
             (
                 start @ SplitTagPosition {
                     byte_offset: start_byte_offset,
-                    which: start_which,
+                    delimiter: start_which,
                     ..
                 },
                 end @ SplitTagPosition {
                     byte_offset: end_byte_offset,
-                    which: end_which,
+                    delimiter: end_which,
                     ..
                 },
             ),
@@ -213,8 +248,8 @@ pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
                 end: end.lico,
                 byte_range,
                 // delimiters
-                start_del: start.which,
-                end_del: end.which,
+                start_del: start.delimiter,
+                end_del: end.delimiter,
             };
 
             if replace {
@@ -238,5 +273,6 @@ pub(crate) fn iter_over_dollar_encompassed_blocks<'a>(
             }
         },
     );
-    pre.into_iter().chain(iter)
+
+    pre.into_iter().chain(iter).chain(last.into_iter())
 }
