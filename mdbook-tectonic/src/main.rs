@@ -199,10 +199,11 @@ fn main() -> color_eyre::Result<()> {
             log::info!("Writing PDF to {} with Tectonic...", cwd.display());
             // FIXME launch tectonic process
             let tectonic = which::which("tectonic")?;
+
+            let args = ["--outfmt=pdf".to_owned(), format!("-o={}", cwd.display()), "-".to_owned()];
+            log::debug!("{} {}", tectonic.display(), args.join(" "));
             let mut child = std::process::Command::new(tectonic)
-                .arg("--outfmt=pdf")
-                .arg(format!("-o={}", cwd.display()))
-                .arg("-")
+                .args(&args)
                 .stdin(std::process::Stdio::piped())
                 .spawn()?;
             {
@@ -306,14 +307,15 @@ fn parse_image_tag<'a>(
     context: &'a RenderContext,
 ) -> std::io::Result<Tag<'a>> {
     // cleaning and converting the path found.
-    let imagefn = path.as_ref().strip_prefix("./").unwrap_or(path.as_ref());
+    let imagefn = dbg!(path.as_ref().strip_prefix("./").unwrap_or(path.as_ref()));
     // let source = &context.config.book.root.join(imagefn);
-    let sourceimage = &context.root.join(imagefn);
+    // FIXME TODO allow to specify the source dir
+    let sourceimage = &context.root.join("assets").join("fishextract").join(imagefn);
     let targetimage = &context.destination.join(imagefn);
 
     if sourceimage != targetimage {
         log::debug!(
-            "🌋 Copying {} -> {}",
+            "Copying image from image tag: {} -> {}",
             sourceimage.display(),
             targetimage.display()
         );

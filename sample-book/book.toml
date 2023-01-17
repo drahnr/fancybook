@@ -5,9 +5,9 @@ multilingual = false
 src = "src"
 
 [preprocessor.fishextract]
+renderer = ["tectonic", "latex"]
 assets = "assets/fishextract"
 fragment_path = "fragments"
-renderer = ["tectonic", "latex"]
 
 
 [preprocessor.scientific]

@@ -134,12 +134,12 @@ impl Fishextract {
                 for fragment in used_fragments {
                     let from = fragment_path.join(&fragment);
                     let to = asset_path.join(&fragment);
-                    log::info!("🐟 Copying {} -> {}", from.display(), to.display());
+                    log::info!("Copying fishextract to assets dir: {} -> {}", from.display(), to.display());
                     fs::copy(from, to)?;
                 }
             } else {
                 log::debug!(
-                    "🐟 Fragments already in the right place, copying nothing {}",
+                    "Fragments already in the right place, copying nothing {}",
                     fragment_path.display()
                 )
             }
