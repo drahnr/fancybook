@@ -1,0 +1,24 @@
+[package]
+name = "mathyank"
+version = "0.0.1"
+authors = [
+  "Bernhard Schuster <bernhard@ahoi.io>",
+]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Segment by $..$ signs and $$..$$"
+keywords = ["mdbook", "scientific", "parse", "equation"]
+repository = "https://github.com/drahnr/fancybook"
+
+
+[dependencies]
+thiserror = "1"
+itertools = "0.10"
+pulldown-cmark = { workspace = true }
+pulldown-cmark-to-cmark = { workspace = true }
+regex = "1"
+log = "0.4"
+
+[dev-dependencies]
+env_logger = "0.10.0"
+assert_matches = "1"

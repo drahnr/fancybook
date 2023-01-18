@@ -1,8 +1,7 @@
 [workspace]
-members = ["mdbook-tectonic", "mdbook-fishextract", "mdbook-scientific", "cmark2tex", "mdbook-boilerplate"]
+members = ["mathyank", "mdbook-tectonic", "mdbook-fishextract", "mdbook-scientific", "cmark2tex", "mdbook-boilerplate"]
 
 [workspace.package]
-version = "0.10.0"
 
 
 [workspace.dependencies]
