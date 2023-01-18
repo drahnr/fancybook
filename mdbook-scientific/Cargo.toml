@@ -31,6 +31,7 @@ regex = "1"
 log = "0.4"
 env_logger = "0.10.0"
 mdbook-boilerplate = { version = "0.1", path = "../mdbook-boilerplate" }
+mathyank = { version = "0.0.1", path = "../mathyank" }
 
 [dev-dependencies]
 assert_matches = "1"

@@ -1,5 +1,5 @@
 use crate::errors;
-pub(crate) use crate::parse::types::*;
+pub(crate) use mathyank::types::*;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -15,7 +15,7 @@ pub enum SupportedRenderer {
 }
 
 impl FromStr for SupportedRenderer {
-    type Err = errors::Error;
+    type Err = errors::ScientificError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s.to_lowercase().as_str() {
@@ -23,7 +23,7 @@ impl FromStr for SupportedRenderer {
             "latex" => Self::Latex,
             "markdown" => Self::Markdown,
             "html" => Self::Html,
-            s => return Err(errors::Error::RendererNotSupported(s.to_owned())),
+            s => return Err(errors::ScientificError::RendererNotSupported(s.to_owned())),
         })
     }
 }

@@ -3,10 +3,11 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::errors::{Error, Result};
+use crate::errors::{ScientificError, Result};
 use crate::fragments;
-use crate::parse::*;
 use crate::types::*;
+use mathyank::iter_over_dollar_encompassed_blocks;
+use mathyank::*;
 
 mod format;
 pub use self::format::*;
@@ -80,7 +81,6 @@ fn transform_block_as_needed<'a>(
     used_fragments: &mut Vec<PathBuf>,
     renderer: SupportedRenderer,
 ) -> Result<String> {
-    let dollarless = content.trimmed();
     let fragment_path = fragment_path.as_ref();
     let asset_path = asset_path.as_ref();
 
@@ -88,11 +88,12 @@ fn transform_block_as_needed<'a>(
     let mut equations_counter = 0;
 
     let mut add_object =
-        move |replacement: &mut Replacement<'_>, refer: &str, title: Option<&str>| -> String {
+        move |replacement: &mut Replacement<'_>, refer: Option<&str>, title: Option<&str>| -> String {
             let fragment_file = replacement.svg_fragment_file.as_path();
             used_fragments.push(fragment_file.to_owned());
 
             if let Some(title) = title {
+                let refer = refer.unwrap_or("");
                 figures_counter += 1;
                 references.insert(
                     refer.to_string(),
@@ -107,7 +108,7 @@ fn transform_block_as_needed<'a>(
                     title,
                     renderer,
                 )
-            } else if !refer.is_empty() {
+            } else if let Some(refer) = refer.filter(|s| !s.is_empty()) {
                 equations_counter += 1;
                 references.insert(
                     refer.to_string(),
@@ -123,7 +124,7 @@ fn transform_block_as_needed<'a>(
             } else {
                 format_equation_block(
                     replacement,
-                    refer,
+                    "",
                     &chapter_number,
                     equations_counter,
                     renderer,
@@ -131,64 +132,30 @@ fn transform_block_as_needed<'a>(
             }
         };
 
-    let params = Vec::from_iter(
-        dollarless
-            .parameters
-            .as_ref()
-            .map(|&s| s.splitn(3, ',').map(|s| s.trim()))
-            .into_iter()
-            .flatten(),
-    );
+    let BlockEqu {
+        kind, refer, title, ..
+    } = BlockEqu::try_from(content)?;
 
-    let (msg, replacement) = match &params[..] {
-        ["latex", refer, title] => (
-            "🌋 tex",
-            fragments::parse_latex(fragment_path, asset_path, &content)
-                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
-        ),
-        ["gnuplot", refer, title] => (
-            "📈 figure",
-            fragments::parse_gnuplot(fragment_path, asset_path, &content)
-                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
-        ),
-        ["gnuplotonly", refer, title] => (
-            "📈 figure",
-            fragments::parse_gnuplot_only(fragment_path, asset_path, &content)
-                .map(|ref mut replacement| add_object(replacement, refer, Some(title))),
-        ),
-
-        ["equation", refer] | ["equ", refer] => (
-            "🧮 equation",
-            fragments::generate_replacement_file_from_template(
-                fragment_path,
-                asset_path,
-                &content,
-                1.6,
-                chapter_number,
-                chapter_name,
-            )
-            .map(|ref mut replacement| add_object(replacement, refer, None)),
-        ),
-
-        ["equation"] | ["equ"] | _ => (
-            "🧮 equation",
-            fragments::generate_replacement_file_from_template(
-                fragment_path,
-                asset_path,
-                &content,
-                1.6,
-                chapter_number,
-                chapter_name,
-            )
-            .map(|ref mut replacement| add_object(replacement, "", None)),
-        ),
+    let mut replacement = match kind {
+        EquBlockKind::Latex => fragments::parse_latex(fragment_path, asset_path, &content)?,
+        EquBlockKind::GnuPlot => fragments::parse_gnuplot(fragment_path, asset_path, &content)?,
+        EquBlockKind::GnuPlotOnly => {
+            fragments::parse_gnuplot_only(fragment_path, asset_path, &content)?
+        }
+        EquBlockKind::Equation => fragments::generate_replacement_file_from_template(
+            fragment_path,
+            asset_path,
+            &content,
+            1.6,
+            chapter_number,
+            chapter_name,
+        )?,
     };
+    let replacement = add_object(&mut replacement, refer, title);
 
-    let mut iter = msg.chars();
-    let emoji = iter.next().unwrap();
-    let msg = String::from_iter(iter.skip(1));
-    log::info!("{} Found block {}", emoji, msg);
-    replacement
+    let (emoji, desc) = kind.as_emoji_w_desc();
+    log::info!("{emoji} Found block {desc}");
+    Ok(replacement)
 }
 
 /// Transform an inline equation such as
@@ -207,80 +174,46 @@ fn transform_inline_as_needed<'a>(
     used_fragments: &mut Vec<PathBuf>,
     renderer: SupportedRenderer,
 ) -> Result<String> {
-    let dollarless = content.trimmed();
     let fragment_path = fragment_path.as_ref();
     let asset_path = asset_path.as_ref();
     let lineno = content.start.lineno;
 
-    if let Some(stripped) = dollarless.strip_prefix("ref:") {
-        let elms = stripped.split(':').collect::<Vec<&str>>();
-        let (msg, replacement) = match &elms[..] {
-            ["fig", refere] => (
-                "📈 figure",
-                references
-                    .get::<str>(refere)
-                    .ok_or(Error::InvalidReference {
-                        to: elms[1].to_owned(),
-                        lineno,
-                    })
-                    .map(|x| format!(r#"<a class="fig_ref" href='#{}'>{}</a>"#, elms[1], x)),
-            ),
-            ["bib", refere] => (
-                "📚 bibliography",
-                references
-                    .get::<str>(refere)
-                    .ok_or(Error::InvalidReference {
-                        to: elms[1].to_owned(),
-                        lineno,
-                    })
-                    .map(|x| {
-                        format!(
-                            r#"<a class="bib_ref" href='bibliography.html#{}'>{}</a>"#,
-                            elms[1], x
-                        )
-                    }),
-            ),
-            ["equ", refere] => (
-                "🧮 equation",
-                references
-                    .get::<str>(refere)
-                    .ok_or(Error::InvalidReference {
-                        to: elms[1].to_owned(),
-                        lineno,
-                    })
-                    .map(|x| format!(r#"<a class="equ_ref" href='#{}'>Eq. ({})</a>"#, elms[1], x)),
-            ),
-            [kind, _] => {
-                return Err(Error::UnknownReferenceKind {
-                    kind: kind.to_owned().to_owned(),
+    use mathyank::*;
+    match Inline::try_from(content)? {
+        Inline::Reference(reference) => {
+            let Reference { ref_kind, refere } = reference;
+            let x = references
+                .get::<str>(refere)
+                .ok_or(ScientificError::InvalidReference {
+                    to: refere.to_owned(),
                     lineno,
-                })
-            }
-            _ => {
-                return Err(Error::UnexpectedReferenceArgCount {
-                    count: elms.len(),
-                    lineno,
-                })
-            }
-        };
-        let mut iter = msg.chars();
-        let emoji = iter.next().unwrap();
-        let msg = String::from_iter(iter.skip(1));
-        log::info!("{} Found inline {}", emoji, msg);
-        replacement
-    } else {
-        fragments::generate_replacement_file_from_template(
-            fragment_path,
-            asset_path,
-            &content,
-            1.3,
-            chapter_number,
-            chapter_name,
-        )
-        .map(|replacement| {
+                })?;
+            let replacement = match ref_kind {
+                RefKind::Bibliography => {
+                    format!(r#"<a class="bib_ref" href='bibliography.html#{refere}'>{x}</a>"#)
+                }
+                RefKind::Figure => format!(r#"<a class="fig_ref" href='#{refere}'>{x}</a>"#),
+                RefKind::Equation => {
+                    format!(r#"<a class="equ_ref" href='#{refere}'>Eq. ({x})</a>"#)
+                }
+            };
+
+            let (emoji, desc) = ref_kind.as_emoji_w_desc();
+            log::info!("{emoji} Found reference {desc}");
+            Ok(replacement)
+        }
+        Inline::Equation(_equ) => {
+            let replacement = fragments::generate_replacement_file_from_template(
+                fragment_path,
+                asset_path,
+                &content,
+                1.3,
+                chapter_number,
+                chapter_name,
+            )?;
             let res = format_equation_inline(&replacement, renderer);
             used_fragments.push(replacement.svg_fragment_file);
-            res
-        })
+            Ok(res)
+        },
     }
 }

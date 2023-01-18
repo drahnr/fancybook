@@ -1,10 +1,9 @@
 mod fragments;
 mod preprocess;
 
-pub mod parse;
-pub use self::parse::*;
+pub use mathyank::*;
 
-use crate::errors::Error;
+use crate::errors::ScientificError;
 use fs_err as fs;
 use mdbook_boilerplate::{asset_path, fragment_path};
 use std::collections::HashMap;
@@ -76,7 +75,7 @@ impl Scientific {
             // track which references are created
             let mut references = HashMap::new();
             // if there occurs an error skip everything and return the error
-            let mut error = Ok::<_, Error>(());
+            let mut error = Ok::<_, ScientificError>(());
 
             match renderer {
                 SupportedRenderer::Markdown | SupportedRenderer::Html => {
@@ -88,7 +87,7 @@ impl Scientific {
                         let bib2xhtml = bib2xhtml.as_str().expect("bib string is valid UTF8. qed");
 
                         if !Path::new(bib).exists() {
-                            return Err(Error::BibliographyMissing(bib.to_owned()));
+                            return Err(ScientificError::BibliographyMissing(bib.to_owned()));
                         }
 
                         // read entries in bibtex file
@@ -189,7 +188,7 @@ impl Scientific {
             }
             Ok(book)
         } else {
-            Err(Error::KeySectionNotFound)
+            Err(ScientificError::KeySectionNotFound)
         }
     }
 }

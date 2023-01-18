@@ -20,7 +20,7 @@ pub fn hash(input: impl AsRef<str>) -> String {
 }
 
 fn find_binary(name: &str) -> Result<std::path::PathBuf> {
-    which::which(name).map_err(|error| Error::BinaryNotFound {
+    which::which(name).map_err(|error| ScientificError::BinaryNotFound {
         binary: name.to_owned(),
         error,
     })
@@ -76,7 +76,7 @@ pub fn generate_svg_from_latex(base: &Path, zoom: f32) -> Result<PathBuf> {
                     err
                 });
 
-            return Err(Error::InvalidMath(
+            return Err(ScientificError::InvalidMath(
                 err.0.to_string(),
                 err.1.to_string(),
                 err.2,
@@ -100,7 +100,7 @@ pub fn generate_svg_from_latex(base: &Path, zoom: f32) -> Result<PathBuf> {
 
         let buf = String::from_utf8_lossy(&cmd.stderr);
         if !cmd.status.success() || buf.contains("error:") {
-            return Err(Error::InvalidDvisvgm(buf.to_string()));
+            return Err(ScientificError::InvalidDvisvgm(buf.to_string()));
         }
     }
 
@@ -327,7 +327,7 @@ pub fn bib_to_html(source: &str, bib2xhtml: &str) -> Result<String> {
 
     let err_str = String::from_utf8_lossy(&cmd.stderr);
     if err_str.contains("error messages)") {
-        Err(Error::InvalidBibliography(err_str.to_string()))
+        Err(ScientificError::InvalidBibliography(err_str.to_string()))
     } else {
         let buf = buf
             .split('\n')
