@@ -28,3 +28,4 @@ resvg = { version = "0.28", features = [] }
 thiserror = "1"
 png = "0.17"
 color-eyre = "0.6"
+mathyank = { version = "0.0.1", path = "../mathyank" }

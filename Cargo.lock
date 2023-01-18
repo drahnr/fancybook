@@ -936,6 +936,7 @@ dependencies = [
  "fs-err",
  "itertools",
  "log",
+ "mathyank",
  "mdbook",
  "mdbook-boilerplate",
  "nom-bibtex",

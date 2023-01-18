@@ -44,15 +44,30 @@ pub struct CurrentType {
 
 /// Converts markdown string to tex string.
 pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Result<String> {
+    use mathyank::*;
+
+    let cmark = cmark.as_ref();
+
+    let iter = dollar_split_tags_iter(cmark);
+    for tagged in iter_over_dollar_encompassed_blocks(cmark, iter) {
+        match tagged {
+            Tagged::Replace(re) => {
+                // TODO
+            }
+            Tagged::Keep(keep) => {
+                // TODO                
+            }
+        }
+    }
+
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_MATH);
+    // options.insert(Options::ENABLE_MATH);
 
     let parser = Parser::new_ext(cmark.as_ref(), options);
-
     parser_to_tex(parser, asset_path.as_ref())
 }
 
@@ -76,8 +91,10 @@ where
 
     let mut buffer = String::new();
 
+    let mut active_math = false;
+
     for event in parser {
-        log::trace!("Event: {:?}", event);
+        log::warn!("Event: {:?}", event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
@@ -373,7 +390,6 @@ where
                 output.push_str(cmark_to_tex(parsed, asset_path)?.as_str());
                 current.event_type = EventType::Text;
             }
-
             Event::Text(t) => {
                 buffer.push_str(&t);
             }
