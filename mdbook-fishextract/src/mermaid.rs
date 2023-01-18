@@ -161,6 +161,3 @@ pub fn replace_mermaid_charts(
     pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf).map_err(Error::CommonMarkGlue)?;
     Ok(buf)
 }
-
-#[cfg(test)]
-mod tests;

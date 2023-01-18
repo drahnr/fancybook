@@ -18,6 +18,9 @@ pub use self::errors::*;
 pub mod types;
 pub use self::types::*;
 
+#[cfg(test)]
+mod tests;
+
 pub struct Fishextract;
 
 impl Fishextract {

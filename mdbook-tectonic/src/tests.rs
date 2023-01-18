@@ -22,7 +22,7 @@ fn test_traverse_markdown() -> Result<(), Box<dyn std::error::Error>> {
     let new_content = traverse_markdown(
         "![123](images/chap/foo.png)",
         &path,
-        &["somewhere"],
+        &["somewhere".into()],
         &context,
     )
     .unwrap();
