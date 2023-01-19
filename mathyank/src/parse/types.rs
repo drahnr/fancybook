@@ -326,6 +326,7 @@ where
     'a: 'b,
 {
     fn from(content: &'b Content<'a>) -> Self {
+        // FIXME split functionality for finding start and end, and start of doc and end of doc
         debug_assert_eq!(content.start_del.as_str(), content.end_del.as_str());
 
         let dollarless = match content.start_del.as_str() {

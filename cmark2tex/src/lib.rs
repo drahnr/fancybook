@@ -7,6 +7,7 @@ extern crate env_logger;
 
 use fs_err as fs;
 use inflector::cases::kebabcase::to_kebab_case;
+use mathyank::{BlockEqu, Content};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, MathDisplay, Options, Parser, Tag};
 use regex::Regex;
 use resvg::tiny_skia::Pixmap;
@@ -20,6 +21,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::string::String;
 use walkdir::WalkDir;
+use itertools::Itertools;
+use std::ops::Range;
 
 pub mod error;
 pub use self::error::*;
@@ -46,38 +49,48 @@ pub struct CurrentType {
 pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Result<String> {
     use mathyank::*;
 
-    let cmark = cmark.as_ref();
-
-    let iter = dollar_split_tags_iter(cmark);
-    for tagged in iter_over_dollar_encompassed_blocks(cmark, iter) {
-        match tagged {
-            Tagged::Replace(re) => {
-                // TODO
-            }
-            Tagged::Keep(keep) => {
-                // TODO                
-            }
-        }
-    }
+    let source = cmark.as_ref();
 
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_FOOTNOTES);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_TABLES);
-    // options.insert(Options::ENABLE_MATH);
+    options.insert(Options::ENABLE_MATH);
+    
+    // run math first, it might include any of the other characters
+    let mi = mathyank::dollar_split_tags_iter(source);
+    let mi = mathyank::iter_over_dollar_encompassed_blocks(source, mi);
+    
+    let mut equation_items = Vec::with_capacity(128);
+    
+    let source = mi.enumerate().map(|(idx, tagged)| -> String {  
+        match dbg!(tagged) {
+            Tagged::Replace(content) => {
+                equation_items.push(content);
+                // track all math equations by idx, the index is the ref into the stack
+                // we hijack the experimental math
+                dbg!(format!("${}$", idx))
+            }
+            Tagged::Keep(content) => {
+                dbg!(content.trimmed().as_str().to_owned())
+            }
+        }
+    }).join("");
 
-    let parser = Parser::new_ext(cmark.as_ref(), options);
-    parser_to_tex(parser, asset_path.as_ref())
+    let parser = Parser::new_ext(source.as_str(), options);
+    let parser = parser.into_offset_iter();
+    
+    parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref())
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
 ///
 /// `asset_path` is the prefix path to be used for paths, could be empty, relative of absolute. Relative to the cwd.
 /// Must remain a relative path!
-pub fn parser_to_tex<'a, P>(parser: P, asset_path: &Path) -> Result<String>
+pub fn parser_to_tex<'a, P>(parser: P, equations: &[Content<'a>], asset_path: &Path) -> Result<String>
 where
-    P: 'a + Iterator<Item = Event<'a>>,
+    P: 'a + Iterator<Item = (Event<'a>, Range<usize>)>,
 {
     //env_logger::init();
     let mut output = String::new();
@@ -92,9 +105,9 @@ where
     let mut buffer = String::new();
 
     let mut active_math = false;
-
-    for event in parser {
-        log::warn!("Event: {:?}", event);
+    
+    for (event, _) in parser {
+        log::warn!("Event: {:?}", dbg!(&event));
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
@@ -350,25 +363,43 @@ where
             }
 
             Event::Math(math_display, math) => {
-                output.push_str(
-                    match math_display {
-                        MathDisplay::Block => {
-                            // FIXME extract equation references
-                            format!(
-                                r###"
+                use mathyank::*;
+                let idx = usize::from_str_radix(&math, 10)?;
+                // there won't be any maths that we didnt stack
+                let content = &equations[idx];
+                let item = mathyank::Item::try_from(content)?;
+                let s = match item {
+                    Item::Block(BlockEqu { title: _, refer, kind, content }) => {
+                        let math =  content.trimmed();
+                        let math = math.as_str();
+                        if let Some(refer) = refer {
+                        format!(
+                            r###"
 \begin{{align}}
-%\label{{}}
+\label{{{refer}}}
 {math}
 \end{{align}}
 "###
-                            )
-                        }
-                        MathDisplay::Inline => {
-                            // FIXME TODO handle all the referencing and shiat
-                            format!(r###"${math}$"###)
-                        }
+)
+                    } else {
+                        format!(
+                            r###"
+\begin{{align}}
+{math}
+\end{{align}}
+"###
+)                       
                     }
-                    .as_str(),
+                    }
+                    Item::Inline(Inline::Equation(InlineEqu { content })) => {
+                        format!("${}$", content.trimmed().as_str())
+                    }
+                    Item::Inline(Inline::Reference(Reference { refere, ref_kind: _})) => {
+                        format!(r##"\eqref{{{refere}}}"##)
+                    }
+                };
+                output.push_str(
+                  &s       
                 );
             }
 

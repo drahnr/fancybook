@@ -248,6 +248,7 @@ dependencies = [
  "env_logger",
  "fs-err",
  "html2md",
+ "itertools",
  "log",
  "mathyank",
  "png",
