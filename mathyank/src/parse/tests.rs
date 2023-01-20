@@ -283,4 +283,99 @@ Hello’ the block is a myth!
 Hello’ the block is a myth!
 "####)
     );
+
+    test_sequester!(reference:
+        r###"℃
+$$equ,foo,mytitle
+\sum_i^\infty x
+$$
+/w ref $ref:equ:foo$."### =>
+    (K, 0..4, "℃\n"),
+    (R, 4..40, r###"$$equ,foo,mytitle
+\sum_i^\infty x
+$$"###),
+    (K, 40..48, r###"
+/w ref "###),
+    (R, 48..61, r###"$ref:equ:foo$"###),
+    (K, 61..62, ".")
+    );
+
+    test_sequester!(soolarge:
+        r###"# bar
+
+A `inline code` with inline math $x(f) = \sum_{i=1}^{\inf} 1+i$ for $\omega$ space.
+
+```mermaid
+sequenceDiagram
+    d->>i: a gram
+```
+
+and now dollar in code
+
+```markdown
+$codeagain!$
+
+$$
+not_math_again2
+$$
+```
+
+```rust
+/// Comment
+fn sample_rust_code<T: Y>() -> Result<T> {
+    // dev
+    (<Y as T>::booboo()?)
+}
+```
+
+and finally some math:
+
+$$equ,oink
+y = \sum somath
+$$
+
+Now ref that one block equ $ref:equ:oink$."### => 
+        (K, 0..40, r###"# bar
+
+A `inline code` with inline math "###),
+        (R, 40..70, r###"$x(f) = \sum_{i=1}^{\inf} 1+i$"###),
+        (K, 70..75, r" for "),
+        (R, 75..83, r"$\omega$"),
+        (K, 83..350, r####" space.
+
+```mermaid
+sequenceDiagram
+    d->>i: a gram
+```
+
+and now dollar in code
+
+```markdown
+$codeagain!$
+
+$$
+not_math_again2
+$$
+```
+
+```rust
+/// Comment
+fn sample_rust_code<T: Y>() -> Result<T> {
+    // dev
+    (<Y as T>::booboo()?)
+}
+```
+
+and finally some math:
+
+"####),
+        (R, 350..379, r##"$$equ,oink
+y = \sum somath
+$$"##),
+        (K, 379..408, r###"
+
+Now ref that one block equ "###),
+        (R, 408..422, "$ref:equ:oink$"),
+        (K, 422..423, ".")
+    );
 }

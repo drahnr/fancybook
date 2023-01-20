@@ -14,10 +14,10 @@ pub enum Error {
 
     #[error(transparent)]
     Regex(#[from] regex::Error),
-    
+
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
-    
+
     #[error(transparent)]
     MathYank(#[from] mathyank::Error),
 }

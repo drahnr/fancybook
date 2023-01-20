@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::errors::{ScientificError, Result};
+use crate::errors::{Result, ScientificError};
 use crate::fragments;
 use crate::types::*;
 use mathyank::iter_over_dollar_encompassed_blocks;
@@ -87,50 +87,52 @@ fn transform_block_as_needed<'a>(
     let mut figures_counter = 0;
     let mut equations_counter = 0;
 
-    let mut add_object =
-        move |replacement: &mut Replacement<'_>, refer: Option<&str>, title: Option<&str>| -> String {
-            let fragment_file = replacement.svg_fragment_file.as_path();
-            used_fragments.push(fragment_file.to_owned());
+    let mut add_object = move |replacement: &mut Replacement<'_>,
+                               refer: Option<&str>,
+                               title: Option<&str>|
+          -> String {
+        let fragment_file = replacement.svg_fragment_file.as_path();
+        used_fragments.push(fragment_file.to_owned());
 
-            if let Some(title) = title {
-                let refer = refer.unwrap_or("");
-                figures_counter += 1;
-                references.insert(
-                    refer.to_string(),
-                    format!("Figure {}{}", chapter_number, figures_counter),
-                );
+        if let Some(title) = title {
+            let refer = refer.unwrap_or("");
+            figures_counter += 1;
+            references.insert(
+                refer.to_string(),
+                format!("Figure {}{}", chapter_number, figures_counter),
+            );
 
-                format_figure(
-                    replacement,
-                    refer,
-                    &chapter_number,
-                    figures_counter,
-                    title,
-                    renderer,
-                )
-            } else if let Some(refer) = refer.filter(|s| !s.is_empty()) {
-                equations_counter += 1;
-                references.insert(
-                    refer.to_string(),
-                    format!("{}{}", chapter_number, equations_counter),
-                );
-                format_equation_block(
-                    replacement,
-                    refer,
-                    &chapter_number,
-                    equations_counter,
-                    renderer,
-                )
-            } else {
-                format_equation_block(
-                    replacement,
-                    "",
-                    &chapter_number,
-                    equations_counter,
-                    renderer,
-                )
-            }
-        };
+            format_figure(
+                replacement,
+                refer,
+                &chapter_number,
+                figures_counter,
+                title,
+                renderer,
+            )
+        } else if let Some(refer) = refer.filter(|s| !s.is_empty()) {
+            equations_counter += 1;
+            references.insert(
+                refer.to_string(),
+                format!("{}{}", chapter_number, equations_counter),
+            );
+            format_equation_block(
+                replacement,
+                refer,
+                &chapter_number,
+                equations_counter,
+                renderer,
+            )
+        } else {
+            format_equation_block(
+                replacement,
+                "",
+                &chapter_number,
+                equations_counter,
+                renderer,
+            )
+        }
+    };
 
     let BlockEqu {
         kind, refer, title, ..
@@ -214,6 +216,6 @@ fn transform_inline_as_needed<'a>(
             let res = format_equation_inline(&replacement, renderer);
             used_fragments.push(replacement.svg_fragment_file);
             Ok(res)
-        },
+        }
     }
 }

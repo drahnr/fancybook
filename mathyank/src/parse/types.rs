@@ -12,7 +12,6 @@ pub enum Error {
     MissingIdentifier { s: String },
 }
 
-
 /// What kind of thing does the reference point to?
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RefKind {
@@ -55,7 +54,6 @@ impl FromStr for RefKind {
     }
 }
 
-
 /// The reference including the `refere` identifier and the kind of item it points to.
 /// Assumes the `ref:` prefix is already split off.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -67,7 +65,10 @@ pub struct Reference<'a> {
 }
 
 impl<'a> Reference<'a> {
-    pub fn from_str<'b>(s: &'b str) -> Result<Self, Error> where 'b:'a {
+    pub fn from_str<'b>(s: &'b str) -> Result<Self, Error>
+    where
+        'b: 'a,
+    {
         let mut elms = s.split(':');
         let ref_kind = if let Some(first) = elms.next() {
             RefKind::from_str(first)?
@@ -77,13 +78,9 @@ impl<'a> Reference<'a> {
         let refere = elms
             .next()
             .ok_or_else(|| Error::MissingIdentifier { s: s.to_owned() })?;
-        Ok(Self {
-            refere,
-            ref_kind,
-        })
+        Ok(Self { refere, ref_kind })
     }
 }
-
 
 /// Wrapper for all types, to just parse whatever string that is delimited by `$` or `$$`.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -103,7 +100,10 @@ pub enum Inline<'a> {
     Equation(InlineEqu<'a>),
 }
 
-impl<'a, 'b> TryFrom<&'b Content<'a>> for Inline<'a> where 'b:'a {
+impl<'a, 'b> TryFrom<&'b Content<'a>> for Inline<'a>
+where
+    'b: 'a,
+{
     type Error = Error;
     fn try_from(content: &'b Content<'a>) -> Result<Self, Error> {
         let trimmed = content.trimmed();
@@ -115,15 +115,13 @@ impl<'a, 'b> TryFrom<&'b Content<'a>> for Inline<'a> where 'b:'a {
     }
 }
 
-
 /// An inline equation. A bare wrapper around the inline equation.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct InlineEqu<'a> {
     pub content: &'a Content<'a>,
 }
 
-impl<'a> From<&'a Content<'a>> for InlineEqu<'a>
-{
+impl<'a> From<&'a Content<'a>> for InlineEqu<'a> {
     fn from(value: &'a Content<'a>) -> Self {
         Self { content: value }
     }
@@ -173,7 +171,7 @@ impl EquBlockKind {
 }
 
 /// A block delimited by `$$` that is an equation.
-/// 
+///
 /// Might include a `refer` id with which in can be referenced,
 /// as well as an optional title.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -190,16 +188,17 @@ where
 {
     type Error = Error;
     fn try_from(content: &'b Content<'a>) -> Result<Self, Error> {
-
         let first_line = content.as_str().lines().next().unwrap_or(content.s);
         assert_eq!(&first_line[..(BLOCK_DELIM.len())], BLOCK_DELIM);
         let first_line = &first_line[(BLOCK_DELIM.len())..];
-        
-        let parameters = (BLOCK_DELIM.len())..(first_line.len());        
-        let parameters = dbg!((!parameters.is_empty()).then(|| {
-            let parameters = &content.s[parameters];
-            parameters
-        }).filter(|s| !s.is_empty()));
+
+        let parameters = (BLOCK_DELIM.len())..(first_line.len());
+        let parameters = dbg!((!parameters.is_empty())
+            .then(|| {
+                let parameters = &content.s[parameters];
+                parameters
+            })
+            .filter(|s| !s.is_empty()));
 
         let mut parameters = parameters
             .as_ref()
@@ -227,7 +226,6 @@ where
     fn try_from(content: &'b Content<'a>) -> Result<Self, Error> {
         Ok(
             if content.start_del.is_block() || content.end_del.is_block() {
-                
                 Self::Block(BlockEqu::try_from(content)?)
             } else {
                 Self::Inline(Inline::try_from(content)?)
@@ -262,7 +260,7 @@ impl<'a> Marker<'a> {
         match self {
             Self::Start(s) => s,
             Self::End(s) => s,
-            Self::EndOfDocument(_,_) | Self::StartOfDocument(_,_) => "",
+            Self::EndOfDocument(_, _) | Self::StartOfDocument(_, _) => "",
         }
     }
 }
@@ -353,11 +351,11 @@ fn block_extract_start_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
     let v: Vec<_> = annotate(content.s);
 
     let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
- 
+
     let first_line = &content.s[..start.1];
     assert_eq!(&first_line[..(BLOCK_DELIM.len())], BLOCK_DELIM);
     assert!(start.1 >= BLOCK_DELIM.len());
-    
+
     (start.0, start.1)
 }
 
@@ -365,9 +363,9 @@ fn block_extract_end_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
     let start = content.start;
     let end = content.end;
     assert!(start <= end);
-    
+
     let v: Vec<_> = annotate(content.s);
-    
+
     let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
     // in case there is only one newline enclosed between `$$\n$$`, use the start newline
     let mut iter = v.iter();
@@ -386,7 +384,7 @@ fn inline_extract_start_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
     let start = content.start;
     let end = content.end;
     assert!(start <= end);
-    
+
     let v: Vec<_> = annotate(content.s);
     let iter = v.iter();
     let mut iter = iter.skip(INLINE_DELIM.len());
@@ -409,45 +407,38 @@ fn inline_extract_end_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
     end
 }
 
-
 impl<'a, 'b> From<&'b Content<'a>> for Trimmed<'a>
 where
     'a: 'b,
 {
     fn from(content: &'b Content<'a>) -> Self {
         // FIXME split functionality for finding start and end, and start of doc and end of doc
-        let start  = match content.start_del {
-            Marker::Start("$") | Marker::End("$") => {
-                inline_extract_start_delimiter(content)
-            }
-            Marker::Start("$$") | Marker::End("$$") => {
-                block_extract_start_delimiter(content)
-            }
-            Marker::StartOfDocument(lico, byte_offset) => {
-                (lico, byte_offset)
-            }
-            marker => unreachable!("Start delimiter always is tagged as start delimiter: start={:?}. qed", marker),
+        let start = match content.start_del {
+            Marker::Start("$") | Marker::End("$") => inline_extract_start_delimiter(content),
+            Marker::Start("$$") | Marker::End("$$") => block_extract_start_delimiter(content),
+            Marker::StartOfDocument(lico, byte_offset) => (lico, byte_offset),
+            marker => unreachable!(
+                "Start delimiter always is tagged as start delimiter: start={:?}. qed",
+                marker
+            ),
         };
         let end = match content.end_del {
-            Marker::Start("$$") | Marker::End("$$") => {
-                block_extract_end_delimiter(content)
-            }
-            Marker::Start("$") | Marker::End("$") => {
-                inline_extract_end_delimiter(content)
-            }
-            Marker::EndOfDocument(lico, byte_offset) => {
-                (lico, byte_offset)
-            }
+            Marker::Start("$$") | Marker::End("$$") => block_extract_end_delimiter(content),
+            Marker::Start("$") | Marker::End("$") => inline_extract_end_delimiter(content),
+            Marker::EndOfDocument(lico, byte_offset) => (lico, byte_offset),
 
-            marker => unreachable!("End delimiter always is tagged as end delimiter: end={:?}. qed", marker),
+            marker => unreachable!(
+                "End delimiter always is tagged as end delimiter: end={:?}. qed",
+                marker
+            ),
         };
-        
+
         let byte_range = start.1..end.1;
         // debug_assert!(!byte_range.is_empty());
-        
+
         let start = start.0;
         let end = end.0;
-        
+
         Trimmed {
             trimmed: &content.s[byte_range.clone()],
             start,

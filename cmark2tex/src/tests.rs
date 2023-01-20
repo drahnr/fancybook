@@ -21,7 +21,6 @@ A $\sum_1^12 x^2$ formula~\\
 #[test]
 fn cmark_to_tex_w_math_block_anon() {
     assert_eq!(
-        
         cmark_to_tex(
             r##"$$
 \sum_1^12 x^2
@@ -45,7 +44,6 @@ formula~\\
 #[test]
 fn cmark_to_tex_w_math_block_reference() {
     assert_eq!(
-        
         cmark_to_tex(
             r##"$$equ,xyz,Some title
 \sum_1^12 x^2
@@ -73,4 +71,41 @@ fn cmark_to_tex_image() {
         cmark_to_tex("![](image.png)",  "../..").unwrap(),
         "\n\\begin{figure}\n\\centering\n\\includegraphics[width=\\textwidth]{image.png}\n\\caption{}\n\\end{figure}\n~\\\\\n",
     );
+}
+
+#[test]
+fn cmark_to_tex_large() {
+    const MD: &str = r####"```markdown
+$codeagain!$
+$$
+not_math
+$$
+```
+
+$$equ,oink,foo
+y = \sum somath
+$$
+
+Now ref that one block equ $ref:equ:oink$.
+"####;
+
+    const TEX: &str = r####"\begin{lstlisting}[language=markdown]
+$codeagain!$
+$$
+not_math
+$$
+
+\end{lstlisting}
+
+
+\begin{align}
+\label{oink}
+
+y = \sum somath
+\end{align}
+~\\
+
+Now ref that one block equ \eqref{oink}.~\\
+"####;
+    assert_eq!(cmark_to_tex(MD, "/tmp/foo").unwrap(), TEX)
 }

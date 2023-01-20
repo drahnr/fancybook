@@ -12,107 +12,114 @@ pub fn dollar_split_tags_iter<'a>(
     let mut is_code_block = false;
     let mut is_pre_block = false;
     let mut is_dollar_block = false;
-    source
+    let mut previous_byte_count = 0;
+    dbg!(source)
         .lines()
         .enumerate()
-        .scan(
-            0_usize,
-            move |previous_byte_count, (lineno, line_content)| {
-                let current_char_cnt = line_content.chars().count();
-                // handle block content
+        .inspect(|x| {
+            dbg!(x);
+        })
+        .filter_map(move |(lineno, line_content)| {
+            let current_char_cnt = line_content.chars().count();
+            // handle block content
 
-                let byte_offset = *previous_byte_count; // byte offset of the start of the line
-                *previous_byte_count += line_content.len() + "\n".len(); // update for the next iteration with the current line length plus newline
+            let byte_offset = previous_byte_count; // byte offset of the start of the line
+            previous_byte_count += dbg!(line_content).len() + "\n".len(); // update for the next iteration with the current line length plus newline
 
-                let mut current = LiCo { lineno, column: 1 };
+            let mut current = LiCo { lineno, column: 1 };
 
-                // FIXME NOT OK, could also be further in
-                if line_content.starts_with("<pre") {
-                    is_pre_block = true;
-                    return None;
-                }
+            // FIXME NOT OK, could also be further in
+            if line_content.starts_with("<pre") {
+                is_pre_block = true;
+                return None;
+            }
 
-                if line_content.starts_with("</pre>") {
-                    is_pre_block = false;
-                    return None;
-                }
+            if line_content.starts_with("</pre>") {
+                is_pre_block = false;
+                return None;
+            }
 
-                if is_pre_block {
-                    return None;
-                }
+            if is_pre_block {
+                return None;
+            }
 
-                // FIXME use a proper markdown/commonmark parser, it's unfixable this
-                // way i.e pre start and end in one line or multiple..
-                if line_content.starts_with("```") {
-                    is_code_block = !is_code_block;
-                }
-                if is_code_block {
-                    return None;
-                }
+            // FIXME use a proper markdown/commonmark parser, it's unfixable this
+            // way i.e pre start and end in one line or multiple..
+            if line_content.starts_with("```") {
+                is_code_block = !is_code_block;
+            }
+            if is_code_block {
+                println!("Skip, code block active: {lineno}");
+                return None;
+            }
 
-                if line_content.starts_with("$$") {
-                    is_dollar_block = !is_dollar_block;
-                    return Some(
-                        vec![SplitTagPosition {
-                            delimiter: if is_dollar_block {
-                                Marker::Start(&line_content[..("$$".len())])
-                            } else {
-                                Marker::End(&line_content[..("$$".len())])
-                            },
-                            lico: current,
-                            byte_offset: byte_offset + 0,
-                            // char_offset, // TODO
-                        }]
-                        .into_iter(),
-                    );
-                }
+            if line_content.starts_with("$$") {
+                is_dollar_block = !is_dollar_block;
 
-                let mut is_intra_inline_code = false;
-                let mut is_between_dollar_content = false;
-
-                // use to collect ranges
-                let mut tagswpos =
-                    Vec::from_iter(line_content.char_indices().enumerate().filter_map(
-                        |(il_char_offset, (il_byte_offset, c))| {
-                            match c {
-                                '$' if !is_intra_inline_code => {
-                                    is_between_dollar_content = !is_between_dollar_content;
-                                    current.column = il_char_offset;
-                                    let dollar = SplitTagPosition {
-                                        delimiter: if is_between_dollar_content {
-                                            Marker::Start(&line_content[il_byte_offset..][..1])
-                                        } else {
-                                            Marker::End(&line_content[il_byte_offset..][..1])
-                                        },
-                                        lico: current,
-                                        byte_offset: byte_offset + il_byte_offset,
-                                    };
-                                    return Some(dollar);
-                                }
-                                '`' => {
-                                    is_intra_inline_code = !is_intra_inline_code;
-                                }
-                                _ => {}
-                            }
-                            None
+                println!("$$ block: {is_dollar_block}");
+                return Some(
+                    vec![SplitTagPosition {
+                        delimiter: if is_dollar_block {
+                            Marker::Start(&line_content[..("$$".len())])
+                        } else {
+                            Marker::End(&line_content[..("$$".len())])
                         },
-                    ));
+                        lico: current,
+                        byte_offset: byte_offset + 0,
+                        // char_offset, // TODO
+                    }]
+                    .into_iter(),
+                );
+            }
 
-                if tagswpos.len() & 0x1 != 0 {
-                    log::warn!("Inserting $-sign at end of line #{lineno}!");
-                    tagswpos.push(SplitTagPosition {
-                        lico: LiCo {
-                            lineno,
-                            column: current_char_cnt + 1, // inclusive, but it doesn't exist, so we need one _after_
-                        },
-                        byte_offset: line_content.len(),
-                        delimiter: Marker::End(""),
-                    })
-                }
-                Some(tagswpos.into_iter())
-            },
-        )
+            let mut is_intra_inline_code = false;
+            let mut is_between_dollar_content = false;
+
+            // use to collect ranges
+            let mut tagswpos = Vec::from_iter(line_content.char_indices().enumerate().filter_map(
+                |(il_char_offset, (il_byte_offset, c))| {
+                    match c {
+                        '$' if !is_intra_inline_code => {
+                            is_between_dollar_content = !is_between_dollar_content;
+
+                            current.column = il_char_offset;
+                            let dollar = SplitTagPosition {
+                                delimiter: if is_between_dollar_content {
+                                    Marker::Start(&line_content[il_byte_offset..][..1])
+                                } else {
+                                    Marker::End(&line_content[il_byte_offset..][..1])
+                                },
+                                lico: current,
+                                byte_offset: byte_offset + il_byte_offset,
+                            };
+                            return Some(dollar);
+                        }
+                        '`' => {
+                            is_intra_inline_code = !is_intra_inline_code;
+                        }
+                        _ => {}
+                    }
+                    None
+                },
+            ));
+
+            if tagswpos.len() & 0x1 != 0 {
+                log::warn!("Inserting $-sign at end of line #{lineno}!");
+                tagswpos.push(SplitTagPosition {
+                    lico: LiCo {
+                        lineno,
+                        column: current_char_cnt + 1, // inclusive, but it doesn't exist, so we need one _after_
+                    },
+                    byte_offset: line_content.len(),
+                    delimiter: Marker::End(""),
+                })
+            }
+            Some(tagswpos.into_iter())
+        })
         .flatten()
+        .inspect(|splittag| {
+            dbg!(splittag);
+        })
 }
 
 #[derive(Debug, Clone)]
@@ -159,7 +166,7 @@ where
             let s = &source[byte_range.clone()];
             let (last_lineno, last_linecontent) =
                 s.lines().enumerate().last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
-            
+
             let end = LiCo {
                 lineno: last_lineno + 1,
                 column: last_linecontent.chars().count(),
@@ -195,28 +202,33 @@ where
             }))
         }
         Some(_n) => None, // first tag is the very beginning
-        None => {  // empty? No `$` in the input? Make it one big keep
+        None => {
+            // empty? No `$` in the input? Make it one big keep
             let start = LiCo {
                 lineno: 1,
                 column: 1,
             };
-            let (last_lineno, last_linecontent) =
-            source.lines().enumerate().last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
-        
+            let (last_lineno, last_linecontent) = source
+                .lines()
+                .enumerate()
+                .last()
+                .unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
+
             let end = LiCo {
                 lineno: last_lineno + 1,
                 column: last_linecontent.chars().count().saturating_sub(0),
             };
+            println!("None -> FULL");
             Some(Tagged::Keep(Content {
-                    // content including the $ delimiters
-                    s: source,
-                    start,
-                    end,
-                    byte_range: 0..(source.len()),
-                    start_del: Marker::StartOfDocument(start, 0),
-                    end_del: Marker::EndOfDocument(end, source.len()),
-                }))
-        },     // empty iter shall stay empty
+                // content including the $ delimiters
+                s: source,
+                start,
+                end,
+                byte_range: 0..(source.len()),
+                start_del: Marker::StartOfDocument(start, 0),
+                end_del: Marker::EndOfDocument(end, source.len()),
+            }))
+        } // empty iter shall stay empty
     };
     let iter = iter.tuple_windows().enumerate().map(
         move |(

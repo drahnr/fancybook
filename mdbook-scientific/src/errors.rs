@@ -6,7 +6,7 @@ pub type Result<T> = std::result::Result<T, ScientificError>;
 pub enum ScientificError {
     #[error(transparent)]
     MathYank(#[from] mathyank::Error),
-    
+
     #[error("Failed to render cmark events after filtering mermaids out: {0:?}")]
     CommonMarkGlue(std::fmt::Error),
 

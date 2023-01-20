@@ -7,6 +7,7 @@ extern crate env_logger;
 
 use fs_err as fs;
 use inflector::cases::kebabcase::to_kebab_case;
+use itertools::Itertools;
 use mathyank::{BlockEqu, Content};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, MathDisplay, Options, Parser, Tag};
 use regex::Regex;
@@ -17,12 +18,11 @@ use std::default::Default;
 use std::ffi::OsStr;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
 use std::string::String;
 use walkdir::WalkDir;
-use itertools::Itertools;
-use std::ops::Range;
 
 pub mod error;
 pub use self::error::*;
@@ -57,40 +57,51 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_MATH);
-    
+
     // run math first, it might include any of the other characters
-    let mi = dollar_split_tags_iter(source).inspect(|x| { dbg!(x); });
+    let mi = dollar_split_tags_iter(source).inspect(|x| {
+        dbg!(x);
+    });
     let mi = iter_over_dollar_encompassed_blocks(source, mi).collect::<Vec<_>>();
-    
+
     let mut equation_items = Vec::with_capacity(128);
-    
-    let source: String = mi.into_iter().scan(0, |idx, tagged| -> Option<String> {  
-        Some(match dbg!(tagged) {
-            Tagged::Replace(content) => {
-                equation_items.push(content);
-                // track all math equations by idx, the index is the ref into the stack
-                // we hijack the experimental math
-                let s = dbg!(format!("${}$", idx));
-                *idx += 1;
-                s
-            }
-            Tagged::Keep(content) => {
-                content.s.to_owned()
-            }
+
+    let source: String = mi
+        .into_iter()
+        .scan(0, |idx, tagged| -> Option<String> {
+            Some(match dbg!(tagged) {
+                Tagged::Replace(content) => {
+                    equation_items.push(content);
+                    // track all math equations by idx, the index is the ref into the stack
+                    // we hijack the experimental math
+                    let s = dbg!(format!("${}$", idx));
+                    *idx += 1;
+                    s
+                }
+                Tagged::Keep(content) => content.s.to_owned(),
+            })
         })
-    }).collect();
+        .collect();
 
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();
-    
-    dbg!(parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref()))
+
+    dbg!(parser_to_tex(
+        parser,
+        equation_items.as_slice(),
+        asset_path.as_ref()
+    ))
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
 ///
 /// `asset_path` is the prefix path to be used for paths, could be empty, relative of absolute. Relative to the cwd.
 /// Must remain a relative path!
-pub fn parser_to_tex<'a, P>(parser: P, equations: &[Content<'a>], asset_path: &Path) -> Result<String>
+pub fn parser_to_tex<'a, P>(
+    parser: P,
+    equations: &[Content<'a>],
+    asset_path: &Path,
+) -> Result<String>
 where
     P: 'a + Iterator<Item = (Event<'a>, Range<usize>)>,
 {
@@ -107,8 +118,8 @@ where
     let mut buffer = String::new();
 
     let mut active_math = false;
-    
-    for (event, _) in parser {
+
+    'lui: for (event, _) in parser {
         log::warn!("Event: {:?}", &event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
@@ -366,50 +377,56 @@ where
 
             Event::Math(_math_display, math) => {
                 use mathyank::*;
-                if let Some(Reference { refere, ref_kind: _}) = math.strip_prefix("ref:").and_then(|s| dbg!(Reference::from_str(dbg!(&s))).ok()) {
-                    output.push_str(format!(r##"\eqref{{{refere}}}"##).as_str());
-                    continue
-                }
-                // lookupt the equation by index
+                // don't care if ref or not, it all sits on the stack
+                // lookup the item by index
                 let idx = usize::from_str_radix(dbg!(&math), 10)?;
-                
+
                 // there won't be any maths that we didnt stack
-                assert!(idx < equations.len(), "Index is {idx} but must be less than length");
+                assert!(
+                    idx < equations.len(),
+                    "Index is {idx} but must be less than length"
+                );
                 let content = &equations[idx];
-                let item = Item::try_from(content)?;
-                let s = match item {
-                    Item::Block(BlockEqu { title: _, refer, kind, content }) => {
-                        let math =  content.trimmed();
+                let item = dbg!(Item::try_from(content))?;
+                let addendum = match item {
+                    Item::Block(BlockEqu {
+                        title: _,
+                        refer,
+                        kind,
+                        content,
+                    }) => {
+                        let math = content.trimmed();
                         let math = math.as_str();
                         if let Some(refer) = refer {
-                        format!(
-                            r###"
+                            format!(
+                                r###"
 \begin{{align}}
 \label{{{refer}}}
 {math}
 \end{{align}}
 "###
-)
-                    } else {
-                        format!(
-                            r###"
+                            )
+                        } else {
+                            format!(
+                                r###"
 \begin{{align}}
 {math}
 \end{{align}}
 "###
-)                       
-                    }
+                            )
+                        }
                     }
                     Item::Inline(Inline::Equation(InlineEqu { content })) => {
                         format!("${}$", content.trimmed().as_str())
                     }
-                    Item::Inline(Inline::Reference(Reference { refere, ref_kind: _})) => {
-                        unreachable!("Already consumed references! qed")
+                    Item::Inline(Inline::Reference(Reference {
+                        refere,
+                        ref_kind: _,
+                    })) => {
+                        format!(r##"\eqref{{{refere}}}"##)
                     }
                 };
-                output.push_str(
-                  &s       
-                );
+                output.push_str(&addendum);
             }
 
             Event::Code(t) => {
