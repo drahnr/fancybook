@@ -59,23 +59,23 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     options.insert(Options::ENABLE_MATH);
     
     // run math first, it might include any of the other characters
-    let mi = mathyank::dollar_split_tags_iter(source);
-    let mi = mathyank::iter_over_dollar_encompassed_blocks(source, mi).collect::<Vec<_>>();
+    let mi = dollar_split_tags_iter(source).inspect(|x| { dbg!(x); });
+    let mi = iter_over_dollar_encompassed_blocks(source, mi).collect::<Vec<_>>();
     
     let mut equation_items = Vec::with_capacity(128);
     
     let source: String = mi.into_iter().scan(0, |idx, tagged| -> Option<String> {  
-        Some(match tagged {
+        Some(match dbg!(tagged) {
             Tagged::Replace(content) => {
                 equation_items.push(content);
                 // track all math equations by idx, the index is the ref into the stack
                 // we hijack the experimental math
-                let s = dbg!(format!("$${}$$", idx));
+                let s = dbg!(format!("${}$", idx));
                 *idx += 1;
                 s
             }
             Tagged::Keep(content) => {
-                dbg!(content.s.to_owned())
+                content.s.to_owned()
             }
         })
     }).collect();
@@ -109,7 +109,7 @@ where
     let mut active_math = false;
     
     for (event, _) in parser {
-        log::warn!("Event: {:?}", dbg!(&event));
+        log::warn!("Event: {:?}", &event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
