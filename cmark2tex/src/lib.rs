@@ -70,7 +70,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
                 equation_items.push(content);
                 // track all math equations by idx, the index is the ref into the stack
                 // we hijack the experimental math
-                let s = dbg!(format!("${}$", idx));
+                let s = dbg!(format!("$${}$$", idx));
                 *idx += 1;
                 s
             }
@@ -366,11 +366,17 @@ where
 
             Event::Math(_math_display, math) => {
                 use mathyank::*;
+                if let Some(Reference { refere, ref_kind: _}) = math.strip_prefix("ref:").and_then(|s| dbg!(Reference::from_str(dbg!(&s))).ok()) {
+                    output.push_str(format!(r##"\eqref{{{refere}}}"##).as_str());
+                    continue
+                }
+                // lookupt the equation by index
                 let idx = usize::from_str_radix(dbg!(&math), 10)?;
+                
                 // there won't be any maths that we didnt stack
                 assert!(idx < equations.len(), "Index is {idx} but must be less than length");
                 let content = &equations[idx];
-                let item = mathyank::Item::try_from(content)?;
+                let item = Item::try_from(content)?;
                 let s = match item {
                     Item::Block(BlockEqu { title: _, refer, kind, content }) => {
                         let math =  content.trimmed();
@@ -398,7 +404,7 @@ where
                         format!("${}$", content.trimmed().as_str())
                     }
                     Item::Inline(Inline::Reference(Reference { refere, ref_kind: _})) => {
-                        format!(r##"\eqref{{{refere}}}"##)
+                        unreachable!("Already consumed references! qed")
                     }
                 };
                 output.push_str(

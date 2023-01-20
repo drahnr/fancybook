@@ -57,6 +57,7 @@ impl FromStr for RefKind {
 
 
 /// The reference including the `refere` identifier and the kind of item it points to.
+/// Assumes the `ref:` prefix is already split off.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Reference<'a> {
     /// The specified ID to be used as an identifier for lookups
@@ -66,7 +67,7 @@ pub struct Reference<'a> {
 }
 
 impl<'a> Reference<'a> {
-    fn from_str<'b>(s: &'b str) -> Result<Self, Error> where 'b:'a {
+    pub fn from_str<'b>(s: &'b str) -> Result<Self, Error> where 'b:'a {
         let mut elms = s.split(':');
         let ref_kind = if let Some(first) = elms.next() {
             RefKind::from_str(first)?

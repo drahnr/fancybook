@@ -31,4 +31,4 @@ $$equ,oink
 y = \sum somath
 $$
 
-Now ref that one block equ $ref:oink$.
+Now ref that one block equ $ref:equ:oink$.
