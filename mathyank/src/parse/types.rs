@@ -12,6 +12,8 @@ pub enum Error {
     MissingIdentifier { s: String },
 }
 
+
+/// What kind of thing does the reference point to?
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RefKind {
     Equation,
@@ -53,6 +55,8 @@ impl FromStr for RefKind {
     }
 }
 
+
+/// The reference including the `refere` identifier and the kind of item it points to.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Reference<'a> {
     /// The specified ID to be used as an identifier for lookups
@@ -79,6 +83,8 @@ impl<'a> Reference<'a> {
     }
 }
 
+
+/// Wrapper for all types, to just parse whatever string that is delimited by `$` or `$$`.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Item<'a> {
     /// An inline block, could be a reference to an equation or figure, or an equation itself
@@ -87,6 +93,7 @@ pub enum Item<'a> {
     Block(BlockEqu<'a>),
 }
 
+/// Parses an inline equation _or_ reference.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Inline<'a> {
     /// An inline equation that's actually just referencing
@@ -107,6 +114,8 @@ impl<'a, 'b> TryFrom<&'b Content<'a>> for Inline<'a> where 'b:'a {
     }
 }
 
+
+/// An inline equation. A bare wrapper around the inline equation.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct InlineEqu<'a> {
     pub content: &'a Content<'a>,
@@ -118,7 +127,8 @@ impl<'a> From<&'a Content<'a>> for InlineEqu<'a>
         Self { content: value }
     }
 }
-/// The type of block
+
+/// The type of block that was encountered.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum EquBlockKind {
     Latex,
@@ -161,6 +171,10 @@ impl EquBlockKind {
     }
 }
 
+/// A block delimited by `$$` that is an equation.
+/// 
+/// Might include a `refer` id with which in can be referenced,
+/// as well as an optional title.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BlockEqu<'a> {
     pub content: &'a Content<'a>,
@@ -175,23 +189,31 @@ where
 {
     type Error = Error;
     fn try_from(content: &'b Content<'a>) -> Result<Self, Error> {
-        let mut params = content
-            .trimmed()
-            .parameters
+
+        let first_line = content.as_str().lines().next().unwrap_or(content.s);
+        assert_eq!(&first_line[..(BLOCK_DELIM.len())], BLOCK_DELIM);
+        let first_line = &first_line[(BLOCK_DELIM.len())..];
+        
+        let parameters = (BLOCK_DELIM.len())..(first_line.len());        
+        let parameters = dbg!((!parameters.is_empty()).then(|| {
+            let parameters = &content.s[parameters];
+            parameters
+        }).filter(|s| !s.is_empty()));
+
+        let mut parameters = parameters
             .as_ref()
             .map(|&s| s.splitn(3, ',').map(|s| s.trim()))
             .into_iter()
             .flatten();
-
-        let kind = params
+        let kind = parameters
             .next()
             .map(|kind_str| EquBlockKind::from_str(kind_str))
             .unwrap_or(Ok(EquBlockKind::Equation))?;
         Ok(Self {
             content,
             kind,
-            refer: params.next(),
-            title: params.next(),
+            refer: parameters.next(),
+            title: parameters.next(),
         })
     }
 }
@@ -201,9 +223,10 @@ where
     'b: 'a,
 {
     type Error = Error;
-    fn try_from(content: &'b Content) -> Result<Self, Error> {
+    fn try_from(content: &'b Content<'a>) -> Result<Self, Error> {
         Ok(
             if content.start_del.is_block() || content.end_del.is_block() {
+                
                 Self::Block(BlockEqu::try_from(content)?)
             } else {
                 Self::Inline(Inline::try_from(content)?)
@@ -225,8 +248,8 @@ pub struct LiCo {
 pub enum Marker<'a> {
     Start(&'a str),
     End(&'a str),
-    EndOfDocument,
-    StartOfDocument,
+    EndOfDocument(LiCo, usize),
+    StartOfDocument(LiCo, usize),
 }
 
 impl<'a> Marker<'a> {
@@ -238,7 +261,7 @@ impl<'a> Marker<'a> {
         match self {
             Self::Start(s) => s,
             Self::End(s) => s,
-            Self::EndOfDocument | Self::StartOfDocument => "",
+            Self::EndOfDocument(_,_) | Self::StartOfDocument(_,_) => "",
         }
     }
 }
@@ -286,13 +309,11 @@ impl<'a> Content<'a> {
     }
 }
 
-/// Removes the delimiters and possible parameters
+/// Removes the delimiters, does not include any parameters
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Trimmed<'a> {
     /// Content between `start` and `end`, _excluding_ start and end, without any delimiters.
     pub trimmed: &'a str,
-    /// The parameters to be parsed
-    pub parameters: Option<&'a str>,
     /// From (including!)
     pub start: LiCo,
     /// Until (including!)
@@ -321,87 +342,117 @@ fn annotate(s: &str) -> Vec<(LiCo, usize, char)> {
         .collect()
 }
 
+const BLOCK_DELIM: &str = "$$";
+
+fn block_extract_start_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
+    let start = content.start;
+    let end = content.end;
+    assert!(start <= end);
+
+    let v: Vec<_> = annotate(content.s);
+
+    let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
+ 
+    let first_line = &content.s[..start.1];
+    assert_eq!(&first_line[..(BLOCK_DELIM.len())], BLOCK_DELIM);
+    assert!(start.1 >= BLOCK_DELIM.len());
+    
+    (start.0, start.1)
+}
+
+fn block_extract_end_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
+    let start = content.start;
+    let end = content.end;
+    assert!(start <= end);
+    
+    let v: Vec<_> = annotate(content.s);
+    
+    let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
+    // in case there is only one newline enclosed between `$$\n$$`, use the start newline
+    let mut iter = v.iter();
+    // we need the byte offset after, but the LiCo to be the one before, since it's inclusive
+    let one_after = iter.rfind(|&&(_, _, c)| c == '\n').unwrap();
+    let end = iter
+        .next_back()
+        .cloned()
+        .unwrap_or_else(|| one_after.clone());
+    (end.0, one_after.1)
+}
+
+const INLINE_DELIM: &str = "$";
+
+fn inline_extract_start_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
+    let start = content.start;
+    let end = content.end;
+    assert!(start <= end);
+    
+    let v: Vec<_> = annotate(content.s);
+    let iter = v.iter();
+    let mut iter = iter.skip(INLINE_DELIM.len());
+    let start = iter.next().cloned().unwrap();
+    (start.0, start.1)
+}
+
+fn inline_extract_end_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
+    let start = content.start;
+    let end = content.end;
+    assert!(start <= end);
+
+    let v: Vec<_> = annotate(content.s);
+    let iter = v.iter();
+    let iter = iter.rev().cloned();
+    let last = v.last().cloned().unwrap();
+    let second_to_last = iter.skip(1).next().unwrap_or_else(|| last.clone());
+    let end = (second_to_last.0, last.1);
+
+    end
+}
+
+
 impl<'a, 'b> From<&'b Content<'a>> for Trimmed<'a>
 where
     'a: 'b,
 {
     fn from(content: &'b Content<'a>) -> Self {
         // FIXME split functionality for finding start and end, and start of doc and end of doc
-        debug_assert_eq!(content.start_del.as_str(), content.end_del.as_str());
-
-        let dollarless = match content.start_del.as_str() {
-            "$$" => {
-                const DELIM: &str = "$$";
-                let start = content.start;
-                let end = content.end;
-                assert!(start <= end);
-
-                let v: Vec<_> = annotate(content.s);
-
-                let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
-                // in case there is only one newline enclosed between `$$\n$$`, use the start newline
-                let mut iter = v.iter();
-                // we need the byte offset after, but the LiCo to be the one before, since it's inclusive
-                let end = if let Some(one_after) = iter.rfind(|&&(_, _, c)| c == '\n') {
-                    let mut end = iter
-                        .next_back()
-                        .cloned()
-                        .unwrap_or_else(|| one_after.clone());
-                    end.1 = one_after.1;
-                    if end < start {
-                        start
-                    } else {
-                        end
-                    }
-                } else {
-                    start.clone()
-                };
-
-                let first_line = &content.s[..start.1];
-                assert_eq!(&first_line[..(DELIM.len())], DELIM);
-                assert!(start.1 >= DELIM.len());
-                let params = &content.s[(DELIM.len())..start.1];
-                let parameters = Some(params).filter(|s| !s.is_empty());
-
-                Trimmed {
-                    trimmed: &content.s[start.1..end.1],
-                    parameters,
-                    start: start.0,
-                    end: end.0,
-                    byte_range: start.1..end.1,
-                }
+        let start  = match content.start_del {
+            Marker::Start("$") | Marker::End("$") => {
+                inline_extract_start_delimiter(content)
             }
-            "$" => {
-                const DELIM: &str = "$";
-                let start = content.start;
-                let end = content.end;
-                assert!(start <= end);
-
-                let v: Vec<_> = annotate(content.s);
-                let iter = v.iter();
-                let mut iter = iter.skip(DELIM.len());
-                let start = iter.next().cloned().unwrap();
-                let iter = iter.rev().cloned();
-                let last = v.last().cloned().unwrap_or_else(|| start.clone());
-                let second_to_last = iter.skip(1).next().unwrap_or_else(|| last.clone());
-                let end = (second_to_last.0, last.1);
-
-                debug_assert_eq!(dbg!(&content.as_str()[..(DELIM.len())]), dbg!(DELIM));
-
-                Trimmed {
-                    trimmed: &content.s[start.1..end.1],
-                    parameters: None,
-                    start: start.0,
-                    end: end.0,
-                    byte_range: start.1..end.1,
-                }
+            Marker::Start("$$") | Marker::End("$$") => {
+                block_extract_start_delimiter(content)
             }
-            // FIXME incorrect, StartOfDocument and EndOfDocument are "" as well
-            other => unreachable!(
-                r#"Only $ or $$ are valid delimiters and only those make it up until here, but found "{other}". qed"#
-            ),
+            Marker::StartOfDocument(lico, byte_offset) => {
+                (lico, byte_offset)
+            }
+            marker => unreachable!("Start delimiter always is tagged as start delimiter: start={:?}. qed", marker),
         };
-        dollarless
+        let end = match content.end_del {
+            Marker::Start("$$") | Marker::End("$$") => {
+                block_extract_end_delimiter(content)
+            }
+            Marker::Start("$") | Marker::End("$") => {
+                inline_extract_end_delimiter(content)
+            }
+            Marker::EndOfDocument(lico, byte_offset) => {
+                (lico, byte_offset)
+            }
+
+            marker => unreachable!("End delimiter always is tagged as end delimiter: end={:?}. qed", marker),
+        };
+        
+        let byte_range = start.1..end.1;
+        // debug_assert!(!byte_range.is_empty());
+        
+        let start = start.0;
+        let end = end.0;
+        
+        Trimmed {
+            trimmed: &content.s[byte_range.clone()],
+            start,
+            end,
+            byte_range,
+        }
     }
 }
 

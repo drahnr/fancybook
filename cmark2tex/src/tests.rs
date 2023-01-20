@@ -19,7 +19,7 @@ A $\sum_1^12 x^2$ formula~\\
 }
 
 #[test]
-fn cmark_to_tex_w_math_block() {
+fn cmark_to_tex_w_math_block_anon() {
     assert_eq!(
         
         cmark_to_tex(
@@ -31,10 +31,38 @@ formula"##,
         )
         .unwrap(),
         r##"
-$$
+
+\begin{align}
+
+\sum_1^12 x^2
+\end{align}
+
+formula~\\
+"##,
+    );
+}
+
+#[test]
+fn cmark_to_tex_w_math_block_reference() {
+    assert_eq!(
+        
+        cmark_to_tex(
+            r##"$$equ,xyz,Some title
 \sum_1^12 x^2
 $$
-formula~\\
+formula $ref:equ:xyz$"##,
+            "."
+        )
+        .unwrap(),
+        r##"
+
+\begin{align}
+\label{xyz}
+
+\sum_1^12 x^2
+\end{align}
+
+formula \eqref{xyz}~\\
 "##,
     );
 }

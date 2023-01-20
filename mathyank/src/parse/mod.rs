@@ -159,16 +159,18 @@ where
             let s = &source[byte_range.clone()];
             let (last_lineno, last_linecontent) =
                 s.lines().enumerate().last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
+            
+            let end = LiCo {
+                lineno: last_lineno + 1,
+                column: last_linecontent.chars().count(),
+            };
             Tagged::Keep(Content {
                 s,
                 start: tag.lico,
-                end: LiCo {
-                    lineno: last_lineno + 1,
-                    column: last_linecontent.chars().count(),
-                },
+                end,
                 byte_range,
                 start_del: tag.delimiter,
-                end_del: Marker::EndOfDocument,
+                end_del: Marker::EndOfDocument(end, source.len()),
             })
         });
 
@@ -178,21 +180,43 @@ where
         Some(nxt) if nxt.byte_offset > 0 => {
             let byte_range = 0..(nxt.byte_offset);
             let s = &source[byte_range.clone()];
+            let start = LiCo {
+                lineno: 1,
+                column: 1,
+            };
             Some(Tagged::Keep(Content {
                 // content including the $ delimiters
                 s,
-                start: LiCo {
-                    lineno: 1,
-                    column: 1,
-                },
+                start,
                 end: nxt.lico,
                 byte_range,
-                start_del: Marker::StartOfDocument,
+                start_del: Marker::StartOfDocument(start, 0),
                 end_del: nxt.delimiter,
             }))
         }
         Some(_n) => None, // first tag is the very beginning
-        None => None,     // empty iter shall stay empty
+        None => {  // empty? No `$` in the input? Make it one big keep
+            let start = LiCo {
+                lineno: 1,
+                column: 1,
+            };
+            let (last_lineno, last_linecontent) =
+            source.lines().enumerate().last().unwrap_or_else(|| (0, source)); // for empty or no newlines, the iterator does not yield anything
+        
+            let end = LiCo {
+                lineno: last_lineno + 1,
+                column: last_linecontent.chars().count().saturating_sub(0),
+            };
+            Some(Tagged::Keep(Content {
+                    // content including the $ delimiters
+                    s: source,
+                    start,
+                    end,
+                    byte_range: 0..(source.len()),
+                    start_del: Marker::StartOfDocument(start, 0),
+                    end_del: Marker::EndOfDocument(end, source.len()),
+                }))
+        },     // empty iter shall stay empty
     };
     let iter = iter.tuple_windows().enumerate().map(
         move |(

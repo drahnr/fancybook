@@ -60,28 +60,30 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     
     // run math first, it might include any of the other characters
     let mi = mathyank::dollar_split_tags_iter(source);
-    let mi = mathyank::iter_over_dollar_encompassed_blocks(source, mi);
+    let mi = mathyank::iter_over_dollar_encompassed_blocks(source, mi).collect::<Vec<_>>();
     
     let mut equation_items = Vec::with_capacity(128);
     
-    let source = mi.enumerate().map(|(idx, tagged)| -> String {  
-        match dbg!(tagged) {
+    let source: String = mi.into_iter().scan(0, |idx, tagged| -> Option<String> {  
+        Some(match tagged {
             Tagged::Replace(content) => {
                 equation_items.push(content);
                 // track all math equations by idx, the index is the ref into the stack
                 // we hijack the experimental math
-                dbg!(format!("${}$", idx))
+                let s = dbg!(format!("${}$", idx));
+                *idx += 1;
+                s
             }
             Tagged::Keep(content) => {
-                dbg!(content.trimmed().as_str().to_owned())
+                dbg!(content.s.to_owned())
             }
-        }
-    }).join("");
+        })
+    }).collect();
 
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();
     
-    parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref())
+    dbg!(parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref()))
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
@@ -362,10 +364,11 @@ where
                 current.event_type = EventType::Text;
             }
 
-            Event::Math(math_display, math) => {
+            Event::Math(_math_display, math) => {
                 use mathyank::*;
-                let idx = usize::from_str_radix(&math, 10)?;
+                let idx = usize::from_str_radix(dbg!(&math), 10)?;
                 // there won't be any maths that we didnt stack
+                assert!(idx < equations.len(), "Index is {idx} but must be less than length");
                 let content = &equations[idx];
                 let item = mathyank::Item::try_from(content)?;
                 let s = match item {
@@ -421,8 +424,8 @@ where
                 output.push_str(cmark_to_tex(parsed, asset_path)?.as_str());
                 current.event_type = EventType::Text;
             }
-            Event::Text(t) => {
-                buffer.push_str(&t);
+            Event::Text(text) => {
+                output.push_str(&text);
             }
 
             Event::SoftBreak => {
