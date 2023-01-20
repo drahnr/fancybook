@@ -59,9 +59,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     options.insert(Options::ENABLE_MATH);
 
     // run math first, it might include any of the other characters
-    let mi = dollar_split_tags_iter(source).inspect(|x| {
-        dbg!(x);
-    });
+    let mi = dollar_split_tags_iter(source);
     let mi = iter_over_dollar_encompassed_blocks(source, mi).collect::<Vec<_>>();
 
     let mut equation_items = Vec::with_capacity(128);

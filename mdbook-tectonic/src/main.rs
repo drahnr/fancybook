@@ -134,7 +134,6 @@ fn main() -> Result<()> {
         }
     }
 
-    // println!("{}", content);
     if cfg.markdown {
         // Output markdown file.
         output_markdown(".md", title, &content, &ctx.destination)?;

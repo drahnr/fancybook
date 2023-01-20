@@ -13,12 +13,9 @@ pub fn dollar_split_tags_iter<'a>(
     let mut is_pre_block = false;
     let mut is_dollar_block = false;
     let mut previous_byte_count = 0;
-    dbg!(source)
+    source
         .lines()
         .enumerate()
-        .inspect(|x| {
-            dbg!(x);
-        })
         .filter_map(move |(lineno, line_content)| {
             let current_char_cnt = line_content.chars().count();
             // handle block content
@@ -49,14 +46,12 @@ pub fn dollar_split_tags_iter<'a>(
                 is_code_block = !is_code_block;
             }
             if is_code_block {
-                println!("Skip, code block active: {lineno}");
                 return None;
             }
 
             if line_content.starts_with("$$") {
                 is_dollar_block = !is_dollar_block;
 
-                println!("$$ block: {is_dollar_block}");
                 return Some(
                     vec![SplitTagPosition {
                         delimiter: if is_dollar_block {
@@ -117,9 +112,6 @@ pub fn dollar_split_tags_iter<'a>(
             Some(tagswpos.into_iter())
         })
         .flatten()
-        .inspect(|splittag| {
-            dbg!(splittag);
-        })
 }
 
 #[derive(Debug, Clone)]
@@ -218,7 +210,6 @@ where
                 lineno: last_lineno + 1,
                 column: last_linecontent.chars().count().saturating_sub(0),
             };
-            println!("None -> FULL");
             Some(Tagged::Keep(Content {
                 // content including the $ delimiters
                 s: source,
