@@ -5,20 +5,20 @@ use std::str::FromStr;
 
 use std::collections::HashMap;
 
-#[derive(Debug,Default,Clone,PartialEq,Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ReferenceTracker(HashMap<String, String>);
 
 impl ReferenceTracker {
     pub fn new() -> Self {
-            Self::default()
+        Self::default()
     }
-    
+
     pub fn add(&mut self, key: impl AsRef<str>, title: impl AsRef<str>) {
         let key = key.as_ref();
         log::warn!("Addind reference `{}`", key);
         self.0.insert(key.to_string(), title.as_ref().to_string());
     }
-    
+
     pub fn get(&self, key: impl AsRef<str>) -> Option<String> {
         let key = key.as_ref();
         let maybe_value = self.0.get(key);

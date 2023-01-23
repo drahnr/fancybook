@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -185,32 +185,39 @@ pub struct BlockEqu<'a> {
 
 #[cfg(test)]
 mod block_equ {
-    use crate::{BlockEqu, EquBlockKind};
     use crate::Content;
     use crate::LiCo;
+    use crate::{BlockEqu, EquBlockKind};
     use assert_matches::assert_matches;
 
-#[test]
-fn parses_with_refer_and_title() {
-    let content = Content {
-        s: r#"$$equ,OINK,PIGGY
+    #[test]
+    fn parses_with_refer_and_title() {
+        let content = Content {
+            s: r#"$$equ,OINK,PIGGY
 x
 $$"#,
-        byte_range: 0..17,
-        start: LiCo { lineno: 1, column: 1},
-        end: LiCo { lineno: 2, column: 2},
-        start_del: crate::Marker::Start("$$"),
-        end_del: crate::Marker::End("$$"),
-    };
-    assert_matches!(BlockEqu::<'_>::try_from(&content), Ok(
-        BlockEqu::<'_> {
-            kind: EquBlockKind::Equation,
-            refer: Some("OINK"),
-            title: Some("PIGGY"),
-            ..
-        }));
-
-}
+            byte_range: 0..17,
+            start: LiCo {
+                lineno: 1,
+                column: 1,
+            },
+            end: LiCo {
+                lineno: 2,
+                column: 2,
+            },
+            start_del: crate::Marker::Start("$$"),
+            end_del: crate::Marker::End("$$"),
+        };
+        assert_matches!(
+            BlockEqu::<'_>::try_from(&content),
+            Ok(BlockEqu::<'_> {
+                kind: EquBlockKind::Equation,
+                refer: Some("OINK"),
+                title: Some("PIGGY"),
+                ..
+            })
+        );
+    }
 }
 
 impl<'a, 'b> TryFrom<&'b Content<'a>> for BlockEqu<'a>

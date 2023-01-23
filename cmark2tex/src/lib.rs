@@ -66,7 +66,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
 
     let source: String = mi
         .into_iter()
-        .map( |tagged| {
+        .map(|tagged| {
             match tagged {
                 Tagged::Replace(content) => {
                     let idx = equation_items.len();

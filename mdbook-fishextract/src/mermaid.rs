@@ -139,7 +139,9 @@ pub fn replace_mermaid_charts(
                     log::info!(
                         "Replacing mermaid graph #{} in chapter \"{} - {}\" in file {} with pdf {}",
                         state.counter,
-                        chapter_number, chapter_name, chapter_path.display(),
+                        chapter_number,
+                        chapter_name,
+                        chapter_path.display(),
                         image_path.display()
                     );
                     let desc = CowStr::from(format!(

@@ -34,7 +34,7 @@ pub fn replace_blocks(
         .map(|tagged| match tagged {
             Tagged::Keep(content) => Ok(content.as_str().to_owned()),
             Tagged::Replace(content) => {
-                let replaced = if content.start_del.is_block() || content.end_del.is_block(){
+                let replaced = if content.start_del.is_block() || content.end_del.is_block() {
                     log::debug!("Found block");
                     transform_block_as_needed(
                         &content,
@@ -69,8 +69,6 @@ pub fn replace_blocks(
         .collect::<String>();
     Ok(s)
 }
-
-
 
 fn transform_block_as_needed<'a>(
     content: &Content<'a>,
@@ -114,10 +112,7 @@ fn transform_block_as_needed<'a>(
             )
         } else if let Some(refer) = refer.filter(|s| !s.is_empty()) {
             equations_counter += 1;
-            references.add(
-                refer,
-                format!("{}{}", chapter_number, equations_counter),
-            );
+            references.add(refer, format!("{}{}", chapter_number, equations_counter));
             format_equation_block(
                 replacement,
                 refer,
@@ -194,15 +189,9 @@ fn transform_inline_as_needed<'a>(
                 })?;
             let title = title.as_ref();
             let replacement = match ref_kind {
-                RefKind::Bibliography => {
-                    format_bib_reference(refere, title, renderer)
-                }
-                RefKind::Figure => {
-                    format_fig_reference(refere, title, renderer)
-                } 
-                RefKind::Equation => {
-                    format_equ_reference(refere, title, renderer)
-                }
+                RefKind::Bibliography => format_bib_reference(refere, title, renderer),
+                RefKind::Figure => format_fig_reference(refere, title, renderer),
+                RefKind::Equation => format_equ_reference(refere, title, renderer),
             };
 
             let (emoji, desc) = ref_kind.as_emoji_w_desc();

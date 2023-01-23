@@ -90,7 +90,7 @@ pub fn dollar_split_tags_iter<'a>(
                                 },
                                 lico: current,
                                 byte_offset: byte_offset + il_byte_offset,
-                            })
+                            });
                         }
                         '`' => {
                             is_intra_inline_code = !is_intra_inline_code;

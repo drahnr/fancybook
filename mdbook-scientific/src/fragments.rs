@@ -156,7 +156,10 @@ pub fn generate_replacement_file_from_template<'a>(
     let svg_asset_file = asset_path.join(&name);
 
     if content.byte_range.len() == 2 {
-        log::error!("Found $$ but got interpreted as two consecutive $ signs! {:?}", &content.byte_range)
+        log::error!(
+            "Found $$ but got interpreted as two consecutive $ signs! {:?}",
+            &content.byte_range
+        )
     }
     log::info!(
         r#"Found equation from {}:{}..{}:{}:
