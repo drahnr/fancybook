@@ -131,6 +131,8 @@ fn main() -> Result<()> {
                 asset_paths,
                 &ctx,
             )?);
+            content.push('\n');
+            content.push('\n');
         }
     }
 

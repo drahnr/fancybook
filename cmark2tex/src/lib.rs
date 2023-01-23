@@ -84,11 +84,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();
 
-    dbg!(parser_to_tex(
-        parser,
-        equation_items.as_slice(),
-        asset_path.as_ref()
-    ))
+    parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref())
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
@@ -338,11 +334,11 @@ where
                 let path = path_str;
                 output.push_str(
                     format!(
-                        r###"\begin{{figure}}
-\centering
-\includegraphics[width=\textwidth]{{{path}}}
-\caption{{{caption}}}
-\end{{figure}}
+                        r###"\begin{{figure}}%
+\centering%
+\includegraphics[width=\textwidth]{{{path}}}%
+\caption{{{caption}}}%
+\end{{figure}}%
 "###
                     )
                     .as_str(),
@@ -440,7 +436,14 @@ where
                 current.event_type = EventType::Text;
             }
             Event::Text(text) => {
-                output.push_str(&text);
+                output.push_str(
+                    text.as_ref()
+                        .replace('#', "\\#")
+                        .replace('%', "\\%")
+                        .replace('&', "\\&")
+                        .replace('^', "\\^")
+                        .as_str(),
+                );
             }
 
             Event::SoftBreak => {

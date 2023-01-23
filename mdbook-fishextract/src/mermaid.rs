@@ -159,6 +159,7 @@ pub fn replace_mermaid_charts(
                     events.push(Event::Text(desc));
                     events.push(Event::End(inject));
                     events.push(Event::SoftBreak);
+                    events.push(Event::SoftBreak);
                     continue;
                 }
             }
@@ -167,6 +168,7 @@ pub fn replace_mermaid_charts(
         events.push(event);
     }
 
+    events.push(Event::SoftBreak);
     pulldown_cmark_to_cmark::cmark(events.into_iter(), &mut buf).map_err(Error::CommonMarkGlue)?;
     Ok(buf)
 }

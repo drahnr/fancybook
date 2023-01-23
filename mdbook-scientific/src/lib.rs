@@ -152,6 +152,7 @@ impl Scientific {
                                 // for line in reconstructed.lines() {
                                 //     eprintln!("+ {}", line);
                                 // }
+                                reconstructed.push('\n');
                                 ch.content = reconstructed;
                             }
                         }
