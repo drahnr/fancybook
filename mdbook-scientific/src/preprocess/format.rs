@@ -24,7 +24,8 @@ pub fn format_figure<'a>(
             )
         }
         Latex | Tectonic => {
-            format!(r#"\[{}\]"#, replacement.inner_str_or_intermediate())
+            format!(r#"$${}
+$$"#, replacement.inner_str_or_intermediate())
         }
     }
 }
@@ -53,8 +54,7 @@ pub fn format_equation_block<'a>(
         }
         Latex | Tectonic => {
             format!(
-                r#"$$
-{}
+                r#"$${}
 $$"#,
                 replacement.inner_str_or_intermediate()
             )
@@ -78,4 +78,54 @@ pub fn format_equation_inline<'a>(
             format!(r#"${}$"#, replacement.inner_str_or_intermediate())
         }
     }
+}
+
+
+pub fn format_bib_reference<'a>(
+    refere: &str,
+    title: &str,
+    renderer: SupportedRenderer,
+) -> String {
+    use SupportedRenderer::*;
+    match renderer {
+        Html => {
+            format!(r#"<a class="bib_ref" href='bibliography.html#{refere}'>{title}</a>"#)
+        }
+        Latex | Tectonic | Markdown => {
+            format!("$ref:bib:{refere}$")
+        }
+    }
+}
+
+pub fn format_fig_reference<'a>(
+    refere: &str,
+    title: &str,
+    renderer: SupportedRenderer,
+) -> String {
+    
+    use SupportedRenderer::*;
+    match renderer {
+        Html => {
+            format!(r#"<a class="fig_ref" href='#{refere}'>{title}</a>"#)
+        }
+        Latex | Tectonic | Markdown  => {
+            format!("$ref:fig:{refere}$")
+        }
+    }
+}
+
+pub fn format_equ_reference<'a>(
+    refere: &str,
+    title: &str,
+    renderer: SupportedRenderer,
+) -> String {
+    use SupportedRenderer::*;
+    match renderer {
+        Html => {
+            format!(r#"<a class="equ_ref" href='#{refere}'>Eq. ({title})</a>"#)
+        }
+        Latex | Tectonic | Markdown => {
+            format!("$ref:equ:{refere}$")
+        }
+    }    
 }

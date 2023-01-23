@@ -73,7 +73,7 @@ impl Scientific {
             // track which fragments we use to copy them into the assets folder
             let mut used_fragments = Vec::new();
             // track which references are created
-            let mut references = HashMap::new();
+            let mut references = ReferenceTracker::new();
             // if there occurs an error skip everything and return the error
             let mut error = Ok::<_, ScientificError>(());
 
@@ -95,7 +95,7 @@ impl Scientific {
                         let bibtex = Bibtex::parse(&bibtex)?;
                         for (i, entry) in bibtex.bibliographies().iter().enumerate() {
                             references
-                                .insert(entry.citation_key().to_string(), format!("[{}]", i + 1));
+                                .add(entry.citation_key().to_string(), format!("[{}]", i + 1));
                         }
 
                         // create bibliography
@@ -123,7 +123,7 @@ impl Scientific {
                     return;
                 }
 
-                if let BookItem::Chapter(ref mut ch) = item {
+                if let BookItem::Chapter(ref mut ch) = dbg!(item) {
                     let chapter_number = ch
                         .number
                         .as_ref()

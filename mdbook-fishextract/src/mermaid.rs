@@ -101,7 +101,14 @@ pub fn replace_mermaid_charts(
 
     let mut events = vec![];
     let mut state = State::default();
-    for (event, _offset) in Parser::new_ext(&source, Options::all()).into_offset_iter() {
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_FOOTNOTES);
+    options.insert(Options::ENABLE_TASKLISTS);
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_MATH); // important, otherwise the newlines are messed up after and before $$ signs
+
+    for (event, _offset) in Parser::new_ext(&source, options).into_offset_iter() {
         match event {
             Event::Start(Tag::CodeBlock(ref kind)) => match kind {
                 CodeBlockKind::Fenced(s) if s.as_ref() == "mermaid" => {
@@ -130,7 +137,7 @@ pub fn replace_mermaid_charts(
                     used_fragments.push(image_path.clone());
 
                     log::info!(
-                        "🧜 Replacing mermaid graph #{} in chapter \"{} - {}\" in file {} with pdf {}",
+                        "Replacing mermaid graph #{} in chapter \"{} - {}\" in file {} with pdf {}",
                         state.counter,
                         chapter_number, chapter_name, chapter_path.display(),
                         image_path.display()

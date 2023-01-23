@@ -21,7 +21,7 @@ pub fn replace_blocks(
     chapter_path: impl AsRef<Path>,
     renderer: SupportedRenderer,
     used_fragments: &mut Vec<PathBuf>,
-    references: &mut HashMap<String, String>,
+    references: &mut ReferenceTracker,
 ) -> Result<String> {
     let chapter_path = chapter_path.as_ref();
     let fragment_path = fragment_path.as_ref();
@@ -34,8 +34,7 @@ pub fn replace_blocks(
         .map(|tagged| match tagged {
             Tagged::Keep(content) => Ok(content.as_str().to_owned()),
             Tagged::Replace(content) => {
-                debug_assert_eq!(content.start_del.is_block(), content.end_del.is_block());
-                if content.start_del.is_block() {
+                let replaced = if content.start_del.is_block() || content.end_del.is_block(){
                     log::debug!("Found block");
                     transform_block_as_needed(
                         &content,
@@ -61,14 +60,17 @@ pub fn replace_blocks(
                         used_fragments,
                         renderer,
                     )
-                }
+                };
+                replaced
             }
         })
         .collect::<Result<Vec<String>>>()?
         .into_iter()
-        .join("\n");
+        .collect::<String>();
     Ok(s)
 }
+
+
 
 fn transform_block_as_needed<'a>(
     content: &Content<'a>,
@@ -77,7 +79,7 @@ fn transform_block_as_needed<'a>(
     chapter_number: &str,
     chapter_name: &str,
     _chapter_path: impl AsRef<Path>,
-    references: &mut HashMap<String, String>,
+    references: &mut ReferenceTracker,
     used_fragments: &mut Vec<PathBuf>,
     renderer: SupportedRenderer,
 ) -> Result<String> {
@@ -95,10 +97,10 @@ fn transform_block_as_needed<'a>(
         used_fragments.push(fragment_file.to_owned());
 
         if let Some(title) = title {
-            let refer = refer.unwrap_or("");
+            let refer = refer.unwrap_or("unknown var");
             figures_counter += 1;
-            references.insert(
-                refer.to_string(),
+            references.add(
+                refer,
                 format!("Figure {}{}", chapter_number, figures_counter),
             );
 
@@ -112,8 +114,8 @@ fn transform_block_as_needed<'a>(
             )
         } else if let Some(refer) = refer.filter(|s| !s.is_empty()) {
             equations_counter += 1;
-            references.insert(
-                refer.to_string(),
+            references.add(
+                refer,
                 format!("{}{}", chapter_number, equations_counter),
             );
             format_equation_block(
@@ -172,7 +174,7 @@ fn transform_inline_as_needed<'a>(
     chapter_number: &str,
     chapter_name: &str,
     _chapter_path: impl AsRef<Path>,
-    references: &HashMap<String, String>,
+    references: &mut ReferenceTracker,
     used_fragments: &mut Vec<PathBuf>,
     renderer: SupportedRenderer,
 ) -> Result<String> {
@@ -184,19 +186,22 @@ fn transform_inline_as_needed<'a>(
     match Inline::try_from(content)? {
         Inline::Reference(reference) => {
             let Reference { ref_kind, refere } = reference;
-            let x = references
-                .get::<str>(refere)
+            let title = references
+                .get(refere)
                 .ok_or(ScientificError::InvalidReference {
                     to: refere.to_owned(),
                     lineno,
                 })?;
+            let title = title.as_ref();
             let replacement = match ref_kind {
                 RefKind::Bibliography => {
-                    format!(r#"<a class="bib_ref" href='bibliography.html#{refere}'>{x}</a>"#)
+                    format_bib_reference(refere, title, renderer)
                 }
-                RefKind::Figure => format!(r#"<a class="fig_ref" href='#{refere}'>{x}</a>"#),
+                RefKind::Figure => {
+                    format_fig_reference(refere, title, renderer)
+                } 
                 RefKind::Equation => {
-                    format!(r#"<a class="equ_ref" href='#{refere}'>Eq. ({x})</a>"#)
+                    format_equ_reference(refere, title, renderer)
                 }
             };
 

@@ -66,18 +66,18 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
 
     let source: String = mi
         .into_iter()
-        .scan(0, |idx, tagged| -> Option<String> {
-            Some(match dbg!(tagged) {
+        .map( |tagged| {
+            match tagged {
                 Tagged::Replace(content) => {
+                    let idx = equation_items.len();
                     equation_items.push(content);
                     // track all math equations by idx, the index is the ref into the stack
                     // we hijack the experimental math
                     let s = dbg!(format!("${}$", idx));
-                    *idx += 1;
                     s
                 }
                 Tagged::Keep(content) => content.s.to_owned(),
-            })
+            }
         })
         .collect();
 
@@ -113,11 +113,7 @@ where
     };
     let mut cells = 0;
 
-    let mut buffer = String::new();
-
-    let mut active_math = false;
-
-    'lui: for (event, _) in parser {
+    for (event, _) in parser {
         log::warn!("Event: {:?}", &event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
@@ -385,7 +381,7 @@ where
                     "Index is {idx} but must be less than length"
                 );
                 let content = &equations[idx];
-                let item = dbg!(Item::try_from(content))?;
+                let item = Item::try_from(content)?;
                 let addendum = match item {
                     Item::Block(BlockEqu {
                         title: _,
@@ -394,23 +390,21 @@ where
                         content,
                     }) => {
                         let math = content.trimmed();
-                        let math = math.as_str();
+                        let math = math.as_str().trim();
                         if let Some(refer) = refer {
                             format!(
                                 r###"
-\begin{{align}}
-\label{{{refer}}}
+\begin{{align}}%
+\label{{{refer}}}%
 {math}
-\end{{align}}
-"###
+\end{{align}}"###
                             )
                         } else {
                             format!(
                                 r###"
-\begin{{align}}
+\begin{{align}}%
 {math}
-\end{{align}}
-"###
+\end{{align}}"###
                             )
                         }
                     }

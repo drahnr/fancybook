@@ -21,14 +21,15 @@ pub fn dollar_split_tags_iter<'a>(
             // handle block content
 
             let byte_offset = previous_byte_count; // byte offset of the start of the line
-            previous_byte_count += dbg!(line_content).len() + "\n".len(); // update for the next iteration with the current line length plus newline
+            previous_byte_count += line_content.len() + "\n".len(); // update for the next iteration with the current line length plus newline
+
+            log::debug!("Processing line {lineno}: \"{line_content}\"");
 
             let mut current = LiCo { lineno, column: 1 };
 
             // FIXME NOT OK, could also be further in
             if line_content.starts_with("<pre") {
                 is_pre_block = true;
-                return None;
             }
 
             if line_content.starts_with("</pre>") {
@@ -37,6 +38,7 @@ pub fn dollar_split_tags_iter<'a>(
             }
 
             if is_pre_block {
+                log::debug!("Skipping, active <pre></pre>");
                 return None;
             }
 
@@ -46,12 +48,13 @@ pub fn dollar_split_tags_iter<'a>(
                 is_code_block = !is_code_block;
             }
             if is_code_block {
+                log::debug!("Skipping, active ``` code block");
                 return None;
             }
 
             if line_content.starts_with("$$") {
                 is_dollar_block = !is_dollar_block;
-
+                log::debug!("Found $$/block delimiter");
                 return Some(
                     vec![SplitTagPosition {
                         delimiter: if is_dollar_block {
@@ -77,8 +80,9 @@ pub fn dollar_split_tags_iter<'a>(
                         '$' if !is_intra_inline_code => {
                             is_between_dollar_content = !is_between_dollar_content;
 
+                            log::debug!("Found $/inline delimiter");
                             current.column = il_char_offset;
-                            let dollar = SplitTagPosition {
+                            return Some(SplitTagPosition {
                                 delimiter: if is_between_dollar_content {
                                     Marker::Start(&line_content[il_byte_offset..][..1])
                                 } else {
@@ -86,8 +90,7 @@ pub fn dollar_split_tags_iter<'a>(
                                 },
                                 lico: current,
                                 byte_offset: byte_offset + il_byte_offset,
-                            };
-                            return Some(dollar);
+                            })
                         }
                         '`' => {
                             is_intra_inline_code = !is_intra_inline_code;

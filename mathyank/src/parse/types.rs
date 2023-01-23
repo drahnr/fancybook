@@ -1,8 +1,9 @@
 use std::str::FromStr;
+use std::collections::HashMap;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Unknown reference type {ref_kind}")]
+    #[error(r##"Unknown reference type {ref_kind}, must be one of `equ`, `fig`, `bib`"##)]
     UnknownRefKind { ref_kind: String },
     #[error("Doesn't have a `ref` prefix: {s}")]
     MissingRefPrefix { s: String },
@@ -182,6 +183,36 @@ pub struct BlockEqu<'a> {
     pub title: Option<&'a str>,
 }
 
+#[cfg(test)]
+mod block_equ {
+    use crate::{BlockEqu, EquBlockKind};
+    use crate::Content;
+    use crate::LiCo;
+    use assert_matches::assert_matches;
+
+#[test]
+fn parses_with_refer_and_title() {
+    let content = Content {
+        s: r#"$$equ,OINK,PIGGY
+x
+$$"#,
+        byte_range: 0..17,
+        start: LiCo { lineno: 1, column: 1},
+        end: LiCo { lineno: 2, column: 2},
+        start_del: crate::Marker::Start("$$"),
+        end_del: crate::Marker::End("$$"),
+    };
+    assert_matches!(BlockEqu::<'_>::try_from(&content), Ok(
+        BlockEqu::<'_> {
+            kind: EquBlockKind::Equation,
+            refer: Some("OINK"),
+            title: Some("PIGGY"),
+            ..
+        }));
+
+}
+}
+
 impl<'a, 'b> TryFrom<&'b Content<'a>> for BlockEqu<'a>
 where
     'b: 'a,
@@ -192,13 +223,11 @@ where
         assert_eq!(&first_line[..(BLOCK_DELIM.len())], BLOCK_DELIM);
         let first_line = &first_line[(BLOCK_DELIM.len())..];
 
-        let parameters = (BLOCK_DELIM.len())..(first_line.len());
-        let parameters = dbg!((!parameters.is_empty())
-            .then(|| {
-                let parameters = &content.s[parameters];
-                parameters
-            })
-            .filter(|s| !s.is_empty()));
+        let parameters = if first_line.is_empty() {
+            None
+        } else {
+            Some(first_line)
+        };
 
         let mut parameters = parameters
             .as_ref()
