@@ -138,7 +138,7 @@ fn main() -> Result<()> {
 
     if cfg.markdown {
         // Output markdown file.
-        output_markdown(".md", title, &content, &ctx.destination)?;
+        output_markdown("md", title, &content, &ctx.destination)?;
     }
 
     if cfg.latex || cfg.pdf {
@@ -157,7 +157,7 @@ fn main() -> Result<()> {
 
         if cfg.latex {
             // Output latex file.
-            output_markdown(".tex", title, &template, &ctx.destination)?;
+            output_markdown("tex", title, &template, &ctx.destination)?;
         }
 
         // Output PDF file.
