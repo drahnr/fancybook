@@ -34,13 +34,6 @@ pub enum ScientificError {
     #[error("Invalid dvi svgm: {0}")]
     InvalidDvisvgm(String),
 
-    #[error("Binary \"{binary}\" was not found using `which`")]
-    BinaryNotFound {
-        binary: String,
-        #[source]
-        error: which::Error,
-    },
-
     #[error("Uneven number of dollar signs found")]
     UnevenNumberDollar,
 
@@ -61,9 +54,6 @@ pub enum ScientificError {
 
     #[error(transparent)]
     MdBook(#[from] mdbook::errors::Error),
-
-    #[error(transparent)]
-    Which(#[from] which::Error),
 
     #[error("mmdc mermaid cli client terminated with {0:?}")]
     MermaidSubprocess(std::process::ExitStatus),

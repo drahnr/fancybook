@@ -24,7 +24,7 @@ semver = "1"
 log = "0.4"
 toml = "0.5"
 env_logger = "0.10"
-
+which = "4"
 
 [dev-dependencies]
 assert_matches = "1"

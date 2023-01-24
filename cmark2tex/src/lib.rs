@@ -73,7 +73,7 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
                     equation_items.push(content);
                     // track all math equations by idx, the index is the ref into the stack
                     // we hijack the experimental math
-                    let s = dbg!(format!("${}$", idx));
+                    let s = format!("${}$", idx);
                     s
                 }
                 Tagged::Keep(content) => content.s.to_owned(),
@@ -369,7 +369,7 @@ where
                 use mathyank::*;
                 // don't care if ref or not, it all sits on the stack
                 // lookup the item by index
-                let idx = usize::from_str_radix(dbg!(&math), 10)?;
+                let idx = usize::from_str_radix(&math, 10)?;
 
                 // there won't be any maths that we didnt stack
                 assert!(

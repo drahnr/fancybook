@@ -54,9 +54,6 @@ pub enum Error {
     #[error(transparent)]
     MdBook(#[from] mdbook::errors::Error),
 
-    #[error(transparent)]
-    Which(#[from] which::Error),
-
     #[error("mmdc mermaid cli client terminated with {0:?}")]
     MermaidSubprocess(std::process::ExitStatus),
 }

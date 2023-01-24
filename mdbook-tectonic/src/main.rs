@@ -169,7 +169,7 @@ fn main() -> Result<()> {
             let cwd = std::env::current_dir()?;
             log::info!("Writing PDF to {} with Tectonic...", cwd.display());
             // FIXME launch tectonic process
-            let tectonic = which::which("tectonic")?;
+            let tectonic = find_program("tectonic")?;
 
             let args = [
                 "--outfmt=pdf".to_owned(),

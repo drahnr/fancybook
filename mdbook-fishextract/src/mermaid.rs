@@ -1,3 +1,5 @@
+use mdbook_boilerplate::find_program;
+
 use crate::types::short_hash;
 
 use super::*;
@@ -8,7 +10,7 @@ fn create_object_from_mermaid(
     chapter_number: &str,
     counter: usize,
 ) -> Result<PathBuf> {
-    let mmdc = which::which("mmdc")?;
+    let mmdc = find_program("mmdc")?;
     let fragment_path = fragment_path.as_ref();
 
     // FIXME should be SVG, but the ouput produces the following issue with cmark2svg

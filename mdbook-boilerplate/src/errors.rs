@@ -14,4 +14,7 @@ pub enum Error {
 
     #[error("Provided renderer is not supported: {0}")]
     RendererNotSupported(String),
+
+    #[error("Failed to find `{name}`")]
+    Which{ source: which::Error, name: String, },
 }

@@ -19,6 +19,15 @@ pub use toml::value::Table;
 mod errors;
 pub use crate::errors::*;
 
+pub fn find_program(name: &str) -> Result<PathBuf, Error> {
+    which::which(name).map_err(|source| {
+        Error::Which {
+            source,
+            name: name.to_owned(),
+        }
+    })
+}
+
 /// Get a config value
 pub fn get_config_value(
     cfg: &toml::value::Table,

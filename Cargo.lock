@@ -901,6 +901,7 @@ dependencies = [
  "sha2",
  "thiserror",
  "toml",
+ "which",
 ]
 
 [[package]]
@@ -923,7 +924,6 @@ dependencies = [
  "sha2",
  "thiserror",
  "toml",
- "which",
 ]
 
 [[package]]

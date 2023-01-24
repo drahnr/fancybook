@@ -19,13 +19,6 @@ pub fn hash(input: impl AsRef<str>) -> String {
     out
 }
 
-fn find_binary(name: &str) -> Result<std::path::PathBuf> {
-    which::which(name).map_err(|error| ScientificError::BinaryNotFound {
-        binary: name.to_owned(),
-        error,
-    })
-}
-
 /// Generate SVG file from latex file with given zoom
 ///
 /// `base` is used as based and added with extensions for intermediate files
