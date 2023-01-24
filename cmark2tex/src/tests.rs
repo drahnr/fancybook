@@ -31,11 +31,9 @@ formula"##,
         .unwrap(),
         r##"
 
-\begin{align}
-
+\begin{align}%
 \sum_1^12 x^2
 \end{align}
-
 formula~\\
 "##,
     );
@@ -54,12 +52,10 @@ formula $ref:equ:xyz$"##,
         .unwrap(),
         r##"
 
-\begin{align}
-\label{xyz}
-
+\begin{align}%
+\label{xyz}%
 \sum_1^12 x^2
 \end{align}
-
 formula \eqref{xyz}~\\
 "##,
     );
@@ -68,8 +64,15 @@ formula \eqref{xyz}~\\
 #[test]
 fn cmark_to_tex_image() {
     assert_eq!(
-        cmark_to_tex("![](image.png)",  "../..").unwrap(),
-        "\n\\begin{figure}\n\\centering\n\\includegraphics[width=\\textwidth]{image.png}\n\\caption{}\n\\end{figure}\n~\\\\\n",
+        cmark_to_tex(r##"![FIXME](image.png "Hello World!")"##, "../..").unwrap(),
+        r###"
+\begin{figure}%
+\centering%
+\includegraphics[width=\textwidth]{image.png}%
+\caption{Hello World!}%
+\end{figure}%
+FIXME~\\
+"###,
     );
 }
 
@@ -98,12 +101,10 @@ $$
 \end{lstlisting}
 
 
-\begin{align}
-\label{oink}
-
+\begin{align}%
+\label{oink}%
 y = \sum somath
-\end{align}
-~\\
+\end{align}~\\
 
 Now ref that one block equ \eqref{oink}.~\\
 "####;
