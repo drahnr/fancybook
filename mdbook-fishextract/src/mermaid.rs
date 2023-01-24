@@ -4,11 +4,12 @@ use crate::types::short_hash;
 
 use super::*;
 
-fn create_object_from_mermaid(
+fn create_object_from_mermaid<'i, 'o>(
     code: &str,
     fragment_path: impl AsRef<Path>,
     chapter_number: &str,
     counter: usize,
+    mmdc_extra_args: &'o [&'i str],
 ) -> Result<PathBuf> {
     let mmdc = find_program("mmdc")?;
     let fragment_path = fragment_path.as_ref();
@@ -46,6 +47,7 @@ fn create_object_from_mermaid(
         .arg(format!("--output={}", dest.display()))
         .arg("--width=700")
         .arg("--height=700")
+        .args(mmdc_extra_args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()?;
@@ -73,7 +75,7 @@ fn create_object_from_mermaid(
 
 /// Replaces the content of the cmark file where codeblocks tagged with `mermaid`
 /// so for
-pub fn replace_mermaid_charts(
+pub fn replace_mermaid_charts<'i: 'o, 'o>(
     source: &str,
     chapter_number: &str,
     chapter_name: &str,
@@ -81,6 +83,7 @@ pub fn replace_mermaid_charts(
     fragment_path: impl AsRef<Path>,
     renderer: SupportedRenderer,
     used_fragments: &mut Vec<PathBuf>,
+    mmdc_extra_args: &'o [&'i str],
 ) -> Result<String> {
     let chapter_path = chapter_path.as_ref();
     match renderer {
@@ -135,6 +138,7 @@ pub fn replace_mermaid_charts(
                         fragment_path,
                         chapter_number,
                         state.counter,
+                        mmdc_extra_args,
                     )?;
                     used_fragments.push(image_path.clone());
 

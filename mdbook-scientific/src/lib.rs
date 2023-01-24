@@ -123,7 +123,7 @@ impl Scientific {
                     return;
                 }
 
-                if let BookItem::Chapter(ref mut ch) = dbg!(item) {
+                if let BookItem::Chapter(ref mut ch) = item {
                     let chapter_number = ch
                         .number
                         .as_ref()

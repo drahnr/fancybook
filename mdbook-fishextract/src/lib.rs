@@ -3,6 +3,7 @@ mod mermaid;
 use crate::errors::Error;
 use fs_err as fs;
 use mdbook::book::SectionNumber;
+use mdbook_boilerplate::find_program;
 use mermaid::replace_mermaid_charts;
 use std::io::Write;
 use std::path::Path;
@@ -50,9 +51,24 @@ impl Preprocessor for Fishextract {
 
 fn get_config_value(cfg: &toml::value::Table, key: &str, default: impl Into<PathBuf>) -> PathBuf {
     cfg.get(key)
-        .map(|x| x.as_str().expect("Config path is valid UTF8. qed"))
+        .map(|value| value.as_str().expect("Config value is valid UTF8. qed"))
         .map(PathBuf::from)
         .unwrap_or(default.into())
+}
+
+fn get_config_values<'a>(cfg: &'a toml::value::Table, key: &str) -> Result<Vec<&'a str>> {
+    let v = if let Some(v) = cfg.get(key) {
+        v
+    } else {
+        return Ok(Vec::new());
+    };
+    let a = v.as_array().expect("Must be array. qed");
+
+    let opts = Vec::<_>::from_iter(
+        a.into_iter()
+            .map(|v| v.as_str().expect("Must be valid UTF8. qed")),
+    );
+    Ok(opts)
 }
 
 fn fragment_path(cfg: &toml::value::Table) -> PathBuf {
@@ -79,6 +95,15 @@ impl Fishextract {
 
             // error acc, only prints the first encountered error
             let mut error = Ok::<_, Error>(());
+
+            let mmdc_extra_args = get_config_values(cfg, "mmdc_extra_args")?;
+            let mmdc_extra_args: &'_ [&'_ str] = &mmdc_extra_args[..];
+            let mmdc = find_program("mmdc")?;
+            log::info!(
+                "Using extra args for `mmdc` ({}): {:?}",
+                mmdc.display(),
+                mmdc_extra_args
+            );
 
             // replace mermaid charts with prerendered svgs
             book.for_each_mut(|item| {
@@ -113,6 +138,7 @@ impl Fishextract {
                         &fragment_path,
                         renderer,
                         &mut used_fragments,
+                        mmdc_extra_args,
                     ) {
                         Ok(replace_with) => {
                             ch.content = replace_with;

@@ -9,6 +9,7 @@ title = "foo book"
 renderer = ["tectonic", "markdown", "latex"]
 fragment_path = "fragments/fishextract"
 assets = "assets/fishextract"
+mmdc_extra_args = ["--puppeteerConfigFile", "./puppeteer.json"]
 
 [preprocessor.mermaid]
 renderer = ["html"]
