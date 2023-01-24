@@ -7,9 +7,8 @@ extern crate env_logger;
 
 use fs_err as fs;
 use inflector::cases::kebabcase::to_kebab_case;
-use itertools::Itertools;
-use mathyank::{BlockEqu, Content};
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, MathDisplay, Options, Parser, Tag};
+use mathyank::Content;
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag};
 use regex::Regex;
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg;
@@ -382,7 +381,7 @@ where
                     Item::Block(BlockEqu {
                         title: _,
                         refer,
-                        kind,
+                        kind: _,
                         content,
                     }) => {
                         let math = content.trimmed();

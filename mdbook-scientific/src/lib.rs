@@ -6,7 +6,6 @@ pub use mathyank::*;
 use crate::errors::ScientificError;
 use fs_err as fs;
 use mdbook_boilerplate::{asset_path, fragment_path};
-use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;

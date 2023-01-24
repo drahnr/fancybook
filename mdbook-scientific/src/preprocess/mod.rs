@@ -1,6 +1,4 @@
 use fs_err as fs;
-use itertools::Itertools;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::errors::{Result, ScientificError};

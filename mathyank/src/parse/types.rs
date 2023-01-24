@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(thiserror::Error, Debug)]
@@ -402,7 +401,6 @@ fn block_extract_end_delimiter<'a>(content: &Content<'a>) -> (LiCo, usize) {
 
     let v: Vec<_> = annotate(content.s);
 
-    let start = v.iter().find(|&&(_, _, c)| c == '\n').cloned().unwrap();
     // in case there is only one newline enclosed between `$$\n$$`, use the start newline
     let mut iter = v.iter();
     // we need the byte offset after, but the LiCo to be the one before, since it's inclusive
