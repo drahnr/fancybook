@@ -57,4 +57,7 @@ pub enum ScientificError {
 
     #[error("mmdc mermaid cli client terminated with {0:?}")]
     MermaidSubprocess(std::process::ExitStatus),
+
+    #[error(transparent)]
+    Boilerplate(#[from] mdbook_boilerplate::Error),
 }

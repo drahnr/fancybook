@@ -29,12 +29,8 @@ pub enum Error {
     #[error("Invalid dvi svgm: {0}")]
     InvalidDvisvgm(String),
 
-    #[error("Binary \"{binary}\" was not found using `which`")]
-    BinaryNotFound {
-        binary: String,
-        #[source]
-        error: which::Error,
-    },
+    #[error(transparent)]
+    Boilerplate(#[from] mdbook_boilerplate::Error),
 
     #[error("Uneven number of dollar signs found")]
     UnevenNumberDollar,

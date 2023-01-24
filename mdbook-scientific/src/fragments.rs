@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::{io::Write, str, usize};
 
+use mdbook_boilerplate::find_program;
 use sha2::{Digest, Sha256};
 
 use crate::errors::*;
@@ -29,7 +30,7 @@ pub fn generate_svg_from_latex(base: &Path, zoom: f32) -> Result<PathBuf> {
     // use latex to generate a dvi
     let dvi_path = base.with_extension("dvi");
     if !dvi_path.exists() {
-        let latex_path = find_binary("latex")?;
+        let latex_path = find_program("latex")?;
 
         let cmd = Command::new(latex_path)
             .current_dir(dest_path)
@@ -80,7 +81,7 @@ pub fn generate_svg_from_latex(base: &Path, zoom: f32) -> Result<PathBuf> {
     // convert the dvi to a svg file with the woff font format
     let svg_path = base.with_extension("svg");
     if !svg_path.exists() && dvi_path.exists() {
-        let dvisvgm_path = find_binary("dvisvgm")?;
+        let dvisvgm_path = find_program("dvisvgm")?;
 
         let cmd = Command::new(dvisvgm_path)
             .current_dir(dest_path)
@@ -110,7 +111,7 @@ fn generate_latex_from_gnuplot<'a>(
     filename: &Path,
 ) -> Result<()> {
     let content = content.trimmed().as_str();
-    let gnuplot_path = find_binary("gnuplot")?;
+    let gnuplot_path = find_program("gnuplot")?;
 
     let cmd = Command::new(gnuplot_path)
         .stdin(Stdio::piped())
@@ -287,7 +288,7 @@ pub fn parse_gnuplot_only<'a>(
     let svg_asset_path = asset_path.join(&name);
 
     if !svg_fragment_path.with_extension("svg").exists() {
-        let gnuplot_path = find_binary("gnuplot")?;
+        let gnuplot_path = find_program("gnuplot")?;
         let cmd = Command::new(gnuplot_path)
             .stdin(Stdio::piped())
             .current_dir(fragment_path)

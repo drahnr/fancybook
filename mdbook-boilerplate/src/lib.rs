@@ -20,11 +20,9 @@ mod errors;
 pub use crate::errors::*;
 
 pub fn find_program(name: &str) -> Result<PathBuf, Error> {
-    which::which(name).map_err(|source| {
-        Error::Which {
-            source,
-            name: name.to_owned(),
-        }
+    which::which(name).map_err(|source| Error::Which {
+        source,
+        name: name.to_owned(),
     })
 }
 
