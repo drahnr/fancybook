@@ -23,7 +23,7 @@ pub fn dollar_split_tags_iter<'a>(
             let byte_offset = previous_byte_count; // byte offset of the start of the line
             previous_byte_count += line_content.len() + "\n".len(); // update for the next iteration with the current line length plus newline
 
-            log::debug!("Processing line {lineno}: \"{line_content}\"");
+            log::trace!("Processing line {lineno}: \"{line_content}\"");
 
             let mut current = LiCo { lineno, column: 1 };
 
