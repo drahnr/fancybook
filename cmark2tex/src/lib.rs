@@ -108,32 +108,31 @@ where
     };
     let mut cells = 0;
 
+    let mut is_code = false;
+
     for (event, _) in parser {
-        log::warn!("Event: {:?}", &event);
+        log::trace!("Event: {:?}", &event);
         match event {
             Event::Start(Tag::Heading(level, _maybe, _vec)) => {
                 current.event_type = EventType::Header;
-                output.push_str("\n");
-                output.push_str("\\");
+                output.push('\n');
                 match level {
                     // -1 => output.push_str("part{"),
-                    HeadingLevel::H1 => output.push_str("chapter{"),
-                    HeadingLevel::H2 => output.push_str("section{"),
-                    HeadingLevel::H3 => output.push_str("subsection{"),
-                    HeadingLevel::H4 => output.push_str("subsubsection{"),
-                    HeadingLevel::H5 => output.push_str("paragraph{"),
-                    HeadingLevel::H6 => output.push_str("subparagraph{"),
+                    HeadingLevel::H1 => output.push_str(r"\chapter{"),
+                    HeadingLevel::H2 => output.push_str(r"\section{"),
+                    HeadingLevel::H3 => output.push_str(r"\subsection{"),
+                    HeadingLevel::H4 => output.push_str(r"\subsubsection{"),
+                    HeadingLevel::H5 => output.push_str(r"\paragraph{"),
+                    HeadingLevel::H6 => output.push_str(r"\subparagraph{"),
                 }
             }
             Event::End(Tag::Heading(_, _, _)) => {
                 output.push_str("}\n");
-                output.push_str("\\");
-                output.push_str("label{");
+                output.push_str(r"\label{");
                 output.push_str(&header_value);
                 output.push_str("}\n");
 
-                output.push_str("\\");
-                output.push_str("label{");
+                output.push_str(r"\label{");
                 output.push_str(&to_kebab_case(&header_value));
                 output.push_str("}\n");
             }
@@ -227,7 +226,7 @@ where
                 ];
                 for element in table_start {
                     output.push_str(element);
-                    output.push_str("\n");
+                    output.push('\n');
                 }
             }
 
@@ -346,8 +345,9 @@ where
 
             Event::Start(Tag::Item) => output.push_str("\\item "),
             Event::End(Tag::Item) => output.push_str("\n"),
-
+            
             Event::Start(Tag::CodeBlock(kind)) => {
+                is_code = true;
                 let re = Regex::new(r",.*").unwrap();
                 current.event_type = EventType::Code;
                 if let CodeBlockKind::Fenced(lang) = kind {
@@ -362,6 +362,7 @@ where
             Event::End(Tag::CodeBlock(_)) => {
                 output.push_str("\n\\end{lstlisting}\n");
                 current.event_type = EventType::Text;
+                is_code = false;
             }
 
             Event::Math(_math_display, math) => {
@@ -410,14 +411,14 @@ where
                         refere,
                         ref_kind: _,
                     })) => {
-                        format!(r##"\eqref{{{refere}}}"##)
+                        format!(r"\eqref{{{refere}}}")
                     }
                 };
                 output.push_str(&addendum);
             }
 
             Event::Code(t) => {
-                output.push_str("\\lstinline|");
+                output.push_str(r"\lstinline|");
                 match current.event_type {
                     EventType::Header => output
                         .push_str(&*t.replace("#", r"\#").replace("…", "...").replace("З", "3")),
@@ -435,14 +436,20 @@ where
                 current.event_type = EventType::Text;
             }
             Event::Text(text) => {
-                output.push_str(
-                    text.as_ref()
-                        .replace('#', "\\#")
-                        .replace('%', "\\%")
-                        .replace('&', "\\&")
-                        .replace('^', "\\^")
-                        .as_str(),
-                );
+                if is_code {
+                    // do not escape anything in code blocks
+                    output.push_str(&text);
+                } else {
+                    // general text
+                    let text = text.as_ref();
+                    let text = text
+                        .replace('#', r"\#")
+                        .replace('%', r"\%")
+                        .replace('&', r"\&")
+                        .replace('^', r"\^");
+    
+                    output.push_str(&text);
+                }
             }
 
             Event::SoftBreak => {
@@ -450,8 +457,8 @@ where
             }
 
             Event::HardBreak => {
-                output.push_str(r"\\");
                 output.push('\n');
+                output.push_str(r"\\");
             }
 
             _ => (),

@@ -267,9 +267,9 @@ fn traverse_markdown(
                     Event::End(tag)
                 }
                 // FIXME TODO
-                // Event::Math(display_math, math) => {
-                //     Event::Math(tag)
-                // }
+                Event::Math(display_math, math) => {
+                    Event::Math(display_math, math)
+                }
                 _ => event,
             })
         })

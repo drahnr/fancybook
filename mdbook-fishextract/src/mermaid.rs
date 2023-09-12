@@ -48,6 +48,8 @@ fn create_object_from_mermaid<'i, 'o>(
         .arg("--width=700")
         .arg("--height=700")
         .args(mmdc_extra_args)
+        .arg("-i")
+        .arg("-")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()?;
