@@ -9,7 +9,7 @@ Compile this crate and add the `mdbook-fishextract` to your search path.
 ```toml
 [preprocessor.fishextract]
 renderer = ["tectonic","markdown","latex"]
-assets = "src/assets"
+assets = "src/generated-artifacts"
 
 ```
 

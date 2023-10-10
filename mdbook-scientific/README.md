@@ -15,7 +15,7 @@ renderer = ["html"]
 bibliography = "literature.bib"
 bib2xhtml = "/home/lorenz/Documents/tmp/bib2xhtml/"
 
-assets = "src/"
+assets = "src/generated-assets"
 
 [output.html]
 additional-css = ["src/scientific.css"]

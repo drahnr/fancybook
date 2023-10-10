@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn cmark_to_tex_basic() {
     assert_eq!(
-        cmark_to_tex("Hello World", ".").unwrap(),
+        cmark_to_tex("Hello World", ".", &[PathBuf::from(".")]).unwrap(),
         "\nHello World~\\\\\n",
     );
 }
@@ -11,7 +11,7 @@ fn cmark_to_tex_basic() {
 #[test]
 fn cmark_to_tex_w_math_inline() {
     assert_eq!(
-        cmark_to_tex(r##"A $\sum_1^12 x^2$ formula"##, ".").unwrap(),
+        cmark_to_tex(r##"A $\sum_1^12 x^2$ formula"##, ".", &[PathBuf::from(".")]).unwrap(),
         r##"
 A $\sum_1^12 x^2$ formula~\\
 "##,
@@ -26,7 +26,8 @@ fn cmark_to_tex_w_math_block_anon() {
 \sum_1^12 x^2
 $$
 formula"##,
-            "."
+            ".",
+            &[PathBuf::from(".")]
         )
         .unwrap(),
         r##"
@@ -47,7 +48,8 @@ fn cmark_to_tex_w_math_block_reference() {
 \sum_1^12 x^2
 $$
 formula $ref:equ:xyz$"##,
-            "."
+            ".",
+            &[PathBuf::from(".")]
         )
         .unwrap(),
         r##"
@@ -64,11 +66,11 @@ formula \eqref{xyz}~\\
 #[test]
 fn cmark_to_tex_image() {
     assert_eq!(
-        cmark_to_tex(r##"![FIXME](image.png "Hello World!")"##, "../..").unwrap(),
+        cmark_to_tex(r##"![FIXME](a.png "Hello World!")"##, ".", &[PathBuf::from("../mdbook-tectonic/examples/sample-book/src/chapter-1")]).unwrap(),
         r###"
 \begin{figure}%
 \centering%
-\includegraphics[width=\textwidth]{image.png}%
+\includegraphics[width=\textwidth]{../mdbook-tectonic/examples/sample-book/src/chapter-1/a.png}%
 \caption{Hello World!}%
 \end{figure}%
 FIXME~\\
@@ -108,5 +110,5 @@ y = \sum somath
 
 Now ref that one block equ \eqref{oink}.~\\
 "####;
-    assert_eq!(cmark_to_tex(MD, "/tmp/foo").unwrap(), TEX)
+    assert_eq!(cmark_to_tex(MD, "/tmp", &[PathBuf::from("foo")]).unwrap(), TEX)
 }

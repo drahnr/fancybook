@@ -24,7 +24,7 @@ assets = "assets/scientific"
 # additional-js = [ "mermaid.min.js", "mermaid-init.js" ]
 
 [output.tectonic]
-latex = true    # default = true
-markdown = true # default = false
-pdf = true      # default = false
+latex = true                                         # default = true
+markdown = true                                      # default = false
+pdf = true                                           # default = false
 assets = ["assets/scientific", "assets/fishextract"]

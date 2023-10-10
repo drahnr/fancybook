@@ -33,7 +33,7 @@ fn main() -> color_eyre::eyre::Result<()> {
         .write(true)
         .open(&args.output)?;
 
-    let tex = cmark_to_tex(content, "../../src")?;
+    let tex = cmark_to_tex(content, args.input.parent().unwrap(), &[PathBuf::from("../../src")])?;
     output.write(tex.as_bytes())?;
 
     Ok(())

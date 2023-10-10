@@ -143,7 +143,18 @@ fn main() -> Result<()> {
 
     if cfg.latex || cfg.pdf {
         // convert markdown data to LaTeX
-        latex.push_str(&cmark_to_tex(content, &ctx.destination)?);
+        let asset_lookup_paths = Vec::from_iter(asset_paths.iter().map(|asset_path| {
+            if asset_path.is_relative() {
+                ctx.root.join(asset_path)
+            } else {
+                asset_path.clone()
+            }
+        }));
+        latex.push_str(&cmark_to_tex(
+            content,
+            &ctx.destination,
+            &asset_lookup_paths,
+        )?);
 
         // Insert new LaTeX data into template after "%% mdbook-tectonic begin".
         const BEGIN: &str = "mdbook-tectonic begin";
@@ -202,11 +213,11 @@ fn main() -> Result<()> {
 /// Output plain text file.
 ///
 /// Used for writing markdown and latex data to files.
-fn output_markdown<P: AsRef<Path>>(
+fn output_markdown(
     extension: &str,
     filename: &str,
     data: &str,
-    destination: P,
+    destination: impl AsRef<Path>,
 ) -> Result<()> {
     // the title might contain a lot of stuff, so limit it to sane chars
     let re = regex::Regex::new("[^A-Za-z0-9_-]").expect("Parses just fine. qed");
@@ -267,9 +278,7 @@ fn traverse_markdown(
                     Event::End(tag)
                 }
                 // FIXME TODO
-                Event::Math(display_math, math) => {
-                    Event::Math(display_math, math)
-                }
+                Event::Math(display_math, math) => Event::Math(display_math, math),
                 _ => event,
             })
         })

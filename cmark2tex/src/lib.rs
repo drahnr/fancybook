@@ -45,7 +45,11 @@ pub struct CurrentType {
 }
 
 /// Converts markdown string to tex string.
-pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Result<String> {
+pub fn cmark_to_tex(
+    cmark: impl AsRef<str>,
+    dest: impl AsRef<Path>,
+    asset_lookup_paths: &[PathBuf],
+) -> Result<String> {
     use mathyank::*;
 
     let source = cmark.as_ref();
@@ -83,7 +87,12 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();
 
-    parser_to_tex(parser, equation_items.as_slice(), asset_path.as_ref())
+    parser_to_tex(
+        parser,
+        equation_items.as_slice(),
+        dest.as_ref(),
+        asset_lookup_paths,
+    )
 }
 
 /// Takes a pulldown_cmark::Parser or any iterator containing `pulldown_cmark::Event` and transforms it to a string
@@ -93,7 +102,8 @@ pub fn cmark_to_tex(cmark: impl AsRef<str>, asset_path: impl AsRef<Path>) -> Res
 pub fn parser_to_tex<'a, P>(
     parser: P,
     equations: &[Content<'a>],
-    asset_path: &Path,
+    dest: &Path,
+    asset_lookup_paths: &[PathBuf],
 ) -> Result<String>
 where
     P: 'a + Iterator<Item = (Event<'a>, Range<usize>)>,
@@ -177,7 +187,7 @@ where
                     let mut found = false;
 
                     // iterate through `src` directory to find the resource.
-                    for entry in WalkDir::new(asset_path).into_iter().filter_map(|e| e.ok()) {
+                    for entry in WalkDir::new(dest).into_iter().filter_map(|e| e.ok()) {
                         let _path = entry.path().to_str().unwrap();
                         let _url = &url.clone().into_string().replace("../", "");
                         if _path.ends_with(_url) {
@@ -306,12 +316,29 @@ where
 
                 // if image path ends with ".svg", run it through
                 // svg2png to convert to png file.
-                if let Some("svg") = get_extension(&path) {
-                    let path = PathBuf::from(path.as_ref());
-                    let path_png = asset_path.join(&path).with_extension("png");
+                let path = PathBuf::from(path_str);
+
+                let mut x = Err(Error::LookupDirs(path.clone(), asset_lookup_paths.to_vec()));
+                for asset_path in asset_lookup_paths.iter() {
+                    let path = asset_path.join(&path);
+                    if !path.is_file() {
+                        log::debug!(
+                            "File {} not found in asset path: {}",
+                            path.display(),
+                            asset_path.display()
+                        );
+                        continue;
+                    }
+                    x = Ok(path);
+                    break;
+                }
+                let resolved_asset_path = x?;
+
+                let resolved_asset_path = if let Some("svg") = get_extension(&resolved_asset_path) {
+                    let path_png = dest.join("converted").join(&path).with_extension("png");
                     log::debug!(
                         "Replacing svg with png: {} -> {} where {}",
-                        path.display(),
+                        resolved_asset_path.display(),
                         path_png.display(),
                         std::env::current_dir().unwrap().to_str().unwrap()
                     );
@@ -319,22 +346,23 @@ where
                     // create output directories, just in case.
                     fs::create_dir_all(path_png.parent().unwrap())?;
 
-                    let img = svg2png(&path)?;
+                    let img = svg2png(&resolved_asset_path)?;
+                    log::info!("Converting svg: {}", path.display());
+                    log::info!("... to png: {}", path_png.display());
 
-                    fs::write(&path_png, img)?;
-                    path_str = path_png
-                        .to_str()
-                        .expect("Works, we just created it from a valid str. qed")
-                        .to_owned();
-                }
+                    fs::write(dbg!(&path_png), img)?;
+                    path_png
+                } else {
+                    resolved_asset_path
+                };
+                let resolved_asset_path = resolved_asset_path.to_str().unwrap();
 
                 let caption = &*title;
-                let path = path_str;
                 output.push_str(
                     format!(
                         r###"\begin{{figure}}%
 \centering%
-\includegraphics[width=\textwidth]{{{path}}}%
+\includegraphics[width=\textwidth]{{{resolved_asset_path}}}%
 \caption{{{caption}}}%
 \end{{figure}}%
 "###
@@ -345,7 +373,7 @@ where
 
             Event::Start(Tag::Item) => output.push_str("\\item "),
             Event::End(Tag::Item) => output.push_str("\n"),
-            
+
             Event::Start(Tag::CodeBlock(kind)) => {
                 is_code = true;
                 let re = Regex::new(r",.*").unwrap();
@@ -432,7 +460,7 @@ where
                 current.event_type = EventType::Html;
                 // convert common html patterns to tex
                 let parsed = parse_html(&t.into_string());
-                output.push_str(cmark_to_tex(parsed, asset_path)?.as_str());
+                output.push_str(cmark_to_tex(parsed, dest, &asset_lookup_paths)?.as_str());
                 current.event_type = EventType::Text;
             }
             Event::Text(text) => {
@@ -447,7 +475,7 @@ where
                         .replace('%', r"\%")
                         .replace('&', r"\&")
                         .replace('^', r"\^");
-    
+
                     output.push_str(&text);
                 }
             }
@@ -463,89 +491,6 @@ where
 
             _ => (),
         }
-    }
-
-    Ok(output)
-}
-
-/// Simple HTML parser.
-///
-/// Eventually I hope to use a mature HTML to tex parser.
-/// Something along the lines of https://github.com/Adonai/html2md/
-pub fn html2tex(html: String, current: &CurrentType) -> Result<String> {
-    let mut tex = html;
-    let mut output = String::new();
-
-    // remove all "class=foo" and "id=bar".
-    let re = Regex::new(r#"\s(class|id)="[a-zA-Z0-9-_]*">"#).unwrap();
-    tex = re.replace(&tex, "").to_string();
-
-    // image html tags
-    if tex.contains("<img") {
-        // Regex doesn't yet support look aheads (.*?), so we'll use simple pattern matching.
-        // let src = Regex::new(r#"src="(.*?)"#).unwrap();
-        let src = Regex::new(r#"src="([a-zA-Z0-9-/_.]*)"#).unwrap();
-        let caps = src.captures(&tex).unwrap();
-        let path_raw = caps.get(1).unwrap().as_str();
-        let path = format!("../../{path}", path = path_raw);
-
-        // if path ends with ".svg", run it through
-        // svg2png to convert to png file.
-        if let Some("svg") = get_extension(&path) {
-            let orig = &path;
-            let path = PathBuf::from(orig.as_str());
-            let img = svg2png(&path)?;
-
-            let path = PathBuf::from(orig.replace("../../", "")).with_extension("png");
-            log::debug!("path!: {}", path.display());
-
-            // create output directories.
-            let _ = fs::create_dir_all(path.parent().unwrap());
-
-            fs::write(&path, img)?;
-        }
-
-        match current.event_type {
-            EventType::Table => {
-                output.push_str(r"\begin{center}\includegraphics[width=0.2\textwidth]{")
-            }
-            _ => {
-                output.push_str(r"\begin{center}\includegraphics[width=0.8\textwidth]{");
-            }
-        }
-
-        output.push_str(path.as_str());
-        output.push_str(r"}\end{center}");
-        output.push_str("\n");
-
-    // all other tags
-    } else {
-        match current.event_type {
-            // block code
-            EventType::Html => {
-                tex = parse_html_description(tex);
-
-                tex = tex
-                    .replace("/>", "")
-                    .replace("<code class=\"language-", "\\begin{lstlisting}")
-                    .replace("</code>", r"\\end{lstlisting}")
-                    .replace("<span", "")
-                    .replace(r"</span>", "")
-            }
-            // inline code
-            _ => {
-                tex = tex
-                    .replace("/>", "")
-                    .replace("<code\n", "<code")
-                    .replace("<code", r"\lstinline|")
-                    .replace("</code>", r"|")
-                    .replace("<span", "")
-                    .replace(r"</span>", "");
-            }
-        }
-        // remove all HTML comments.
-        let re = Regex::new(r"<!--.*-->").unwrap();
-        output.push_str(&re.replace(&tex, ""));
     }
 
     Ok(output)
@@ -627,8 +572,8 @@ pub fn svg2png(svg_path: &Path) -> Result<Vec<u8>> {
 /// Extract extension from filename
 ///
 /// Source:  https://stackoverflow.com/questions/45291832/extracting-a-file-extension-from-a-given-path-in-rust-idiomatically
-pub fn get_extension(filename: &str) -> Option<&str> {
-    Path::new(filename).extension().and_then(OsStr::to_str)
+pub fn get_extension(filename: &std::path::Path) -> Option<&str> {
+    filename.extension().and_then(OsStr::to_str)
 }
 
 #[cfg(test)]

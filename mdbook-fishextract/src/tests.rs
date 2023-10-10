@@ -21,6 +21,7 @@ A-->B
         dest,
         SupportedRenderer::Markdown,
         &mut Vec::new(),
+        &[]
     )
     .unwrap();
 

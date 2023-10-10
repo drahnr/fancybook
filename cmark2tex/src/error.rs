@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -20,6 +22,9 @@ pub enum Error {
 
     #[error(transparent)]
     MathYank(#[from] mathyank::Error),
+
+    #[error("Not found asset {0} lookup dirs: {1:?}")]
+    LookupDirs(PathBuf, Vec<PathBuf>),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

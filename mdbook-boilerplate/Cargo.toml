@@ -1,9 +1,7 @@
 [package]
 name = "mdbook-boilerplate"
 version = "0.1.0"
-authors = [
-  "Bernhard Schuster <bernhard@ahoi.io>",
-]
+authors = ["Bernhard Schuster <bernhard@ahoi.io>"]
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 description = "Avoid the mdbook preprocessor boilerplate"

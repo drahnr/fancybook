@@ -1,9 +1,17 @@
 [workspace]
-members = ["mathyank", "mdbook-tectonic", "mdbook-fishextract", "mdbook-scientific", "cmark2tex", "mdbook-boilerplate"]
+members = [
+  "mathyank",
+  "mdbook-tectonic",
+  "mdbook-fishextract",
+  "mdbook-scientific",
+  "cmark2tex",
+  "mdbook-boilerplate",
+]
+resolver = "2"
 
 [workspace.package]
 
 
 [workspace.dependencies]
 pulldown-cmark = { git = "https://github.com/drahnr/pulldown-cmark.git", branch = "math" }
-pulldown-cmark-to-cmark =  { git = "https://github.com/drahnr/pulldown-cmark-to-cmark.git", branch = "math" }
+pulldown-cmark-to-cmark = { git = "https://github.com/drahnr/pulldown-cmark-to-cmark.git", branch = "math" }

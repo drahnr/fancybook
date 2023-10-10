@@ -1,9 +1,7 @@
 [package]
 name = "mathyank"
 version = "0.0.1"
-authors = [
-  "Bernhard Schuster <bernhard@ahoi.io>",
-]
+authors = ["Bernhard Schuster <bernhard@ahoi.io>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Segment by $..$ signs and $$..$$"
