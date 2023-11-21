@@ -67,7 +67,7 @@ pub fn cmark_to_tex(
 
     let mut equation_items = Vec::with_capacity(128);
 
-    let source: String = mi
+    let source: String = String::from_iter(mi
         .into_iter()
         .map(|tagged| {
             match tagged {
@@ -81,8 +81,7 @@ pub fn cmark_to_tex(
                 }
                 Tagged::Keep(content) => content.s.to_owned(),
             }
-        })
-        .collect();
+        }));
 
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();

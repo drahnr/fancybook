@@ -6,6 +6,7 @@ use mdbook::book::BookItem;
 use mdbook::renderer::RenderContext;
 use mdbook_boilerplate::{check_version_compat, setup_log_and_backtrace};
 use pulldown_cmark::{CowStr, Event, LinkType, Options, Parser, Tag};
+use std::collections::HashSet;
 use std::io::{self, BufReader, Write};
 use std::path::Path;
 use std::path::PathBuf;
@@ -97,7 +98,8 @@ fn main() -> Result<()> {
         .unwrap_or("<Unknown Title>");
     let authors = ctx.config.book.authors.join(" \\and ");
     let date = cfg.date.clone();
-    let asset_paths = &cfg.assets[..];
+    let asset_paths = { let mut asset_paths = cfg.assets.clone(); asset_paths.push(ctx.destination.clone()); asset_paths };
+    let asset_paths = asset_paths.as_slice();
 
     // Copy template data into memory.
     let mut template = if let Some(custom_template) = cfg.custom_template {
@@ -124,7 +126,6 @@ fn main() -> Result<()> {
                 continue;
             }
 
-            // Add chapter path to relative links.
             content.push_str(&traverse_markdown(
                 &ch.content,
                 ch.path.as_ref().unwrap().parent().unwrap(),
@@ -153,7 +154,7 @@ fn main() -> Result<()> {
         latex.push_str(&cmark_to_tex(
             content,
             &ctx.destination,
-            &asset_lookup_paths,
+            dbg!(&asset_lookup_paths),
         )?);
 
         // Insert new LaTeX data into template after "%% mdbook-tectonic begin".
@@ -289,36 +290,95 @@ fn traverse_markdown(
     Ok(new_content)
 }
 
+
+/// Converts the tag path, to an image path
+fn adjust_image_path_from_relative_path(imagefn: &Path, chapter_path: &Path, context: &RenderContext) -> Result<PathBuf> {
+    let sourceimage = &context.source_dir().join(chapter_path).join(imagefn);
+    let target_rel = PathBuf::from("images").join(chapter_path).join(imagefn);
+    let targetimage = &context.destination.join(&target_rel);
+
+    if !sourceimage.is_file() {
+        
+        log::debug!(
+            "Couldn't find source image {} under: {}",
+            imagefn.display(),
+            sourceimage.display()
+        );
+        bail!("Nope, not that");
+    }
+
+    log::debug!(
+        "Copying image {} from image tag: {} -> {}",
+        imagefn.display(),
+        sourceimage.display(),
+        targetimage.display()
+    );
+    fs::create_dir_all(targetimage.parent().unwrap())?;
+    fs::copy(&sourceimage, &targetimage)?;
+
+    Ok(target_rel)
+}
+
+/// Attempt to lookup all images in the given asset paths
+fn adjust_image_path_from_global_asset_dir(imagefn: &Path, asset_paths: &[PathBuf], context: &RenderContext) -> Result<PathBuf> {
+    for asset_path in asset_paths {
+        let sourceimage = context.root.join(asset_path).join(imagefn);
+        let target_rel = PathBuf::from("images").join(&asset_path).join(imagefn);
+        let targetimage = dbg!(context.destination.join(&target_rel));
+        if sourceimage.exists() {
+            if sourceimage != targetimage {
+                log::debug!(
+                    "Copying image {} from image tag: {} -> {}",
+                    imagefn.display(),
+                    sourceimage.display(),
+                    targetimage.display()
+                );
+                fs::create_dir_all(targetimage.parent().unwrap())?;
+                fs::copy(&sourceimage, &targetimage)?;
+            } else {
+                log::debug!(
+                    "Found image {} from image tag: {} (inplace)",
+                    imagefn.display(),
+                    sourceimage.display()
+                );
+            }
+            return Ok(target_rel)
+        }
+        log::debug!(
+            "Couldn't find source image {} under: {}",
+            imagefn.display(),
+            sourceimage.display()
+        );
+    }
+    Err(cmark2tex::Error::LookupDirs(imagefn.to_owned(), Vec::from_iter(asset_paths.iter().map(|x| x.to_owned()))))?
+} 
+
 /// Take the values of a Tag::Image and create a new Tag::Image
 /// while simplyfying the path and also copying the image file to the target directory
 fn parse_image_tag<'a>(
     link_type: LinkType,
     path: CowStr<'a>,
     title: CowStr<'a>,
-    _chapter_path: &'a Path,
+    chapter_path: &'a Path,
     asset_paths: &[PathBuf],
     context: &'a RenderContext,
 ) -> Result<Tag<'a>> {
     // cleaning and converting the path found.
-    let imagefn = path.as_ref().strip_prefix("./").unwrap_or(path.as_ref());
+    let imagefn = path.as_ref();
+    let imagefn = imagefn.strip_prefix("./").unwrap_or(imagefn);
 
-    let targetimage = &context.destination.join(imagefn);
-    for asset_path in asset_paths {
-        let sourceimage = &context.root.join(asset_path).join(imagefn);
-        if sourceimage.exists() {
-            if sourceimage != targetimage {
-                log::debug!(
-                    "Copying image {} from image tag: {} -> {}",
-                    imagefn,
-                    sourceimage.display(),
-                    targetimage.display()
-                );
-                fs::create_dir_all(targetimage.parent().unwrap())?;
-                fs::copy(&sourceimage, &targetimage)?;
-            }
-            break;
-        }
-    }
+    dbg!(&chapter_path);
+    dbg!(&imagefn);
+    
+    let imagefn = PathBuf::from(imagefn);
+    let image = if let Ok(x) = adjust_image_path_from_relative_path(imagefn.as_ref(), chapter_path, context) {
+        // we want relative paths from the root, since we collapse it all into one file
+        log::debug!("Found image from chapter relative path");
+        x    
+    } else {
+        adjust_image_path_from_global_asset_dir(imagefn.as_ref(), asset_paths, context)?
+    };
     // create the new image
-    Ok(Tag::Image(link_type, imagefn.to_owned().into(), title))
+    let s: String = image.to_string_lossy().to_string();
+    Ok(Tag::Image(link_type, CowStr::from(dbg!(s)), title))
 }

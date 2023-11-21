@@ -4,9 +4,7 @@ authors = ["liam"]
 multilingual = false
 src = "src"
 
-[output.html]
-
-[output.latex]
+[output.tectonic]
 latex = true    # default = true
-pdf = false     # default = false
+pdf = true     # default = false
 markdown = true # default = false
