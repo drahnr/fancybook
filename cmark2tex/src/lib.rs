@@ -67,21 +67,19 @@ pub fn cmark_to_tex(
 
     let mut equation_items = Vec::with_capacity(128);
 
-    let source: String = String::from_iter(mi
-        .into_iter()
-        .map(|tagged| {
-            match tagged {
-                Tagged::Replace(content) => {
-                    let idx = equation_items.len();
-                    equation_items.push(content);
-                    // track all math equations by idx, the index is the ref into the stack
-                    // we hijack the experimental math
-                    let s = format!("${}$", idx);
-                    s
-                }
-                Tagged::Keep(content) => content.s.to_owned(),
+    let source: String = String::from_iter(mi.into_iter().map(|tagged| {
+        match tagged {
+            Tagged::Replace(content) => {
+                let idx = equation_items.len();
+                equation_items.push(content);
+                // track all math equations by idx, the index is the ref into the stack
+                // we hijack the experimental math
+                let s = format!("${}$", idx);
+                s
             }
-        }));
+            Tagged::Keep(content) => content.s.to_owned(),
+        }
+    }));
 
     let parser = Parser::new_ext(source.as_str(), options);
     let parser = parser.into_offset_iter();
@@ -223,15 +221,13 @@ where
 
             Event::Start(Tag::Table(_)) => {
                 current.event_type = EventType::Table;
+                output.push_str("\n");
                 let table_start = vec![
-                    "\n",
                     r"\begingroup",
                     r"\setlength{\LTleft}{-20cm plus -1fill}",
                     r"\setlength{\LTright}{\LTleft}",
                     r"\begin{longtable}{!!!}",
                     r"\hline",
-                    r"\hline",
-                    "\n",
                 ];
                 for element in table_start {
                     output.push_str(element);
@@ -247,8 +243,7 @@ where
                 output.truncate(output.len() - 2);
                 output.push_str(r"\\");
                 output.push_str("\n");
-
-                output.push_str(r"\hline");
+                output.push_str(r"\arrayrulecolor{darkgray}\hline");
                 output.push_str("\n");
 
                 // we presume that a table follows every table head.
@@ -256,12 +251,7 @@ where
             }
 
             Event::End(Tag::Table(_)) => {
-                let table_end = vec![
-                    r"\arrayrulecolor{black}\hline",
-                    r"\end{longtable}",
-                    r"\endgroup",
-                    "\n",
-                ];
+                let table_end = vec![r"\end{longtable}", r"\endgroup"];
 
                 for element in table_end {
                     output.push_str(element);
@@ -530,7 +520,7 @@ where
 /// Example: foo.svg becomes foo.svg.png
 pub fn svg2png(svg_path: &Path) -> Result<Vec<u8>> {
     debug!("svg2png operating on {}", svg_path.display());
-    let data = fs::read_to_string(svg_path)?;
+    let data: String = fs::read_to_string(svg_path)?;
 
     if data.is_empty() {
         Err(Error::Svg(

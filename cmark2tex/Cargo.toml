@@ -29,4 +29,7 @@ thiserror = "1"
 png = "0.17"
 color-eyre = "0.6"
 mathyank = { version = "0.0.1", path = "../mathyank" }
-itertools = "0.10"
+itertools = "0.12"
+
+[dev-dependencies]
+pretty_env_logger = "0.5"

@@ -64,9 +64,50 @@ formula \eqref{xyz}~\\
 }
 
 #[test]
+fn cmark_to_tex_table() {
+    let _ = pretty_env_logger::formatted_builder()
+        .is_test(true)
+        .filter_level(log::LevelFilter::Trace)
+        .try_init();
+    assert_eq!(
+        cmark_to_tex(
+            r####"
+| Segment | ... |
+|---------|-----|
+| 64k     | 65q |
+| aaa     | ccc |
+"####,
+            ".",
+            &[]
+        )
+        .expect("Tables are fine. qed"),
+        r###"
+\begingroup
+\setlength{\LTleft}{-20cm plus -1fill}
+\setlength{\LTright}{\LTleft}
+\begin{longtable}{C{0.5\textwidth} C{0.5\textwidth} }
+\hline
+\bfseries{Segment} & \bfseries{...} \\
+\arrayrulecolor{darkgray}\hline
+64k & 65q \\\arrayrulecolor{lightgray}\hline
+aaa & ccc \\\arrayrulecolor{lightgray}\hline
+\end{longtable}
+\endgroup
+"###
+    );
+}
+
+#[test]
 fn cmark_to_tex_image() {
     assert_eq!(
-        cmark_to_tex(r##"![FIXME](a.png "Hello World!")"##, ".", &[PathBuf::from("../mdbook-tectonic/examples/sample-book/src/chapter-1")]).unwrap(),
+        cmark_to_tex(
+            r##"![FIXME](a.png "Hello World!")"##,
+            ".",
+            &[PathBuf::from(
+                "../mdbook-tectonic/examples/sample-book/src/chapter-1"
+            )]
+        )
+        .unwrap(),
         r###"
 \begin{figure}%
 \centering%
@@ -110,5 +151,8 @@ y = \sum somath
 
 Now ref that one block equ \eqref{oink}.~\\
 "####;
-    assert_eq!(cmark_to_tex(MD, "/tmp", &[PathBuf::from("foo")]).unwrap(), TEX)
+    assert_eq!(
+        cmark_to_tex(MD, "/tmp", &[PathBuf::from("foo")]).unwrap(),
+        TEX
+    )
 }

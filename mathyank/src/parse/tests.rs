@@ -255,7 +255,7 @@ $$
 1
 $$"# =>
     (K, 0..26, r#"Hello’ there is a block
-"#),
+    "#),
     (R, 26..33, "$$
 1
 $$")
@@ -270,7 +270,7 @@ Byeby’ there was a block"# =>
 1
 $$"),
     (K, 7..34, r#"
-Byeby’ there was a block"#)
+    Byeby’ there was a block"#)
     );
 
     test_sequester!(nope:
@@ -295,7 +295,7 @@ $$
 \sum_i^\infty x
 $$"###),
     (K, 40..48, r###"
-/w ref "###),
+    /w ref "###),
     (R, 48..61, r###"$ref:equ:foo$"###),
     (K, 61..62, ".")
     );
